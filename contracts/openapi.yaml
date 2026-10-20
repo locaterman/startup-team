@@ -1,0 +1,5570 @@
+openapi: 3.1.0
+info:
+  title: Startup Team MVP API
+  version: 0.4.0
+  description: Prototype contract for the selected 12-feature scope; see docs/IMPLEMENTATION_STATUS.md for verification limits.
+servers:
+- url: /api/v1
+tags:
+- name: auth
+- name: users
+- name: startups
+- name: vacancies
+- name: applications
+- name: offers
+- name: team
+- name: recruiters
+- name: tests
+- name: notifications
+- name: history
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+            request_id: &id001
+              type: string
+              format: uuid
+          required:
+          - code
+          - message
+          - details
+          - request_id
+          additionalProperties: false
+      required:
+      - error
+      additionalProperties: false
+    User:
+      type: object
+      properties:
+        id: *id001
+        name:
+          type: string
+        bio:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
+        portfolio_url:
+          anyOf:
+          - &id007
+            type: string
+            format: uri
+          - type: 'null'
+      required:
+      - id
+      - name
+      - bio
+      - skills
+      additionalProperties: false
+    Login:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+      required:
+      - email
+      - password
+      additionalProperties: false
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        bio:
+          type: string
+          maxLength: 5000
+        skills:
+          type: array
+          items:
+            type: string
+        portfolio_url:
+          anyOf:
+          - type: string
+            format: uri
+            pattern: ^https?://
+          - type: 'null'
+      required: []
+      additionalProperties: false
+    StartupCreate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 180
+        description:
+          type: string
+        allow_general_applications: &id002
+          type: boolean
+      required:
+      - title
+      additionalProperties: false
+    StartupUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 180
+        description:
+          type: string
+        allow_general_applications: *id002
+      required: []
+      additionalProperties: false
+    Startup:
+      type: object
+      properties:
+        id: *id001
+        owner_id: *id001
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+          - active
+          - paused
+          - archived
+        allow_general_applications: *id002
+        revision: &id004
+          type: integer
+      required:
+      - id
+      - owner_id
+      - title
+      - description
+      - status
+      - allow_general_applications
+      - revision
+      additionalProperties: false
+    VacancyCreate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 180
+        description:
+          type: string
+        requirements:
+          type: string
+        positions_count:
+          type: integer
+          minimum: 1
+        application_deadline: &id003
+          type: string
+          format: date-time
+      required:
+      - title
+      - positions_count
+      - application_deadline
+      additionalProperties: false
+    VacancySettings:
+      type: object
+      properties:
+        positions_count:
+          type: integer
+          minimum: 1
+        application_deadline: *id003
+      required: []
+      additionalProperties: false
+    VacancyChange:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 180
+        description:
+          type: string
+        requirements:
+          type: string
+        change_mode:
+          type: string
+          enum:
+          - keep_applications
+          - reset_applications
+        reason:
+          type: string
+      required:
+      - title
+      - change_mode
+      additionalProperties: false
+    Vacancy:
+      type: object
+      properties:
+        id: *id001
+        startup_id: *id001
+        title:
+          type: string
+        description:
+          type: string
+        requirements:
+          type: string
+        positions_count: *id004
+        application_deadline: *id003
+        status:
+          type: string
+          enum:
+          - published
+          - intake_closed
+          - archived
+        current_version: *id004
+        revision: *id004
+        owner_id: *id001
+        startup_status:
+          type: string
+      required:
+      - id
+      - startup_id
+      - title
+      - description
+      - requirements
+      - positions_count
+      - application_deadline
+      - status
+      - current_version
+      - revision
+      additionalProperties: false
+    VacancyVersion:
+      type: object
+      properties:
+        id: *id001
+        vacancy_id: *id001
+        version: *id004
+        title:
+          type: string
+        description:
+          type: string
+        requirements:
+          type: string
+        change_mode:
+          type: string
+        created_at: *id003
+      required:
+      - id
+      - vacancy_id
+      - version
+      - title
+      - description
+      - requirements
+      - change_mode
+      - created_at
+      additionalProperties: false
+    Capacity:
+      type: object
+      properties:
+        positions_count: *id004
+        occupied: *id004
+        reserved: *id004
+        available: *id004
+      required:
+      - positions_count
+      - occupied
+      - reserved
+      - available
+      additionalProperties: false
+    ApplicationCreate:
+      type: object
+      properties:
+        target_type:
+          type: string
+          enum:
+          - vacancy
+          - startup
+        target_id: *id001
+        message:
+          type: string
+          maxLength: 5000
+      required:
+      - target_type
+      - target_id
+      additionalProperties: false
+    Application:
+      type: object
+      properties:
+        id: *id001
+        startup_id: *id001
+        vacancy_id:
+          anyOf:
+          - *id001
+          - type: 'null'
+        applicant_id: *id001
+        attempt_id: *id001
+        status:
+          type: string
+          enum:
+          - pending
+          - reviewing
+          - offer_pending
+          - rejected
+          - withdrawn
+          - reset
+          - joined
+          - declined
+          - already_joined
+          - closed
+        message:
+          type: string
+        revision: *id004
+        created_at: *id003
+        vacancy_version_id: &id005
+          anyOf:
+          - *id001
+          - type: 'null'
+        rejection_reason:
+          type: string
+        startup_title:
+          type: string
+        applicant_name:
+          type: string
+        vacancy_title: &id006
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - id
+      - startup_id
+      - applicant_id
+      - attempt_id
+      - status
+      - message
+      - revision
+      - created_at
+      additionalProperties: false
+    AttemptCreate:
+      type: object
+      properties:
+        message:
+          type: string
+          maxLength: 5000
+      required: []
+      additionalProperties: false
+    RejectBody:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 2000
+      required: []
+      additionalProperties: false
+    OfferCreate:
+      type: object
+      properties:
+        expires_at: *id003
+        message:
+          type: string
+          maxLength: 5000
+      required:
+      - expires_at
+      additionalProperties: false
+    Offer:
+      type: object
+      properties:
+        id: *id001
+        startup_id: *id001
+        candidate_id: *id001
+        vacancy_id:
+          anyOf:
+          - *id001
+          - type: 'null'
+        status:
+          type: string
+          enum:
+          - pending
+          - accepted
+          - declined
+          - revoked
+          - expired
+        expires_at: *id003
+        revision: *id004
+        attempt_id: *id001
+        vacancy_version_id: *id005
+        message:
+          type: string
+        startup_title:
+          type: string
+        vacancy_title: *id006
+        vacancy_description: *id006
+        vacancy_requirements: *id006
+      required:
+      - id
+      - startup_id
+      - candidate_id
+      - status
+      - expires_at
+      - revision
+      additionalProperties: false
+    Member:
+      type: object
+      properties:
+        id: *id001
+        startup_id: *id001
+        user_id: *id001
+        joined_at: *id003
+        left_at:
+          anyOf:
+          - *id003
+          - type: 'null'
+      required:
+      - id
+      - startup_id
+      - user_id
+      - joined_at
+      additionalProperties: false
+    RecruiterInvitationCreate:
+      type: object
+      properties:
+        user_id: *id001
+        expires_at: *id003
+      required:
+      - user_id
+      - expires_at
+      additionalProperties: false
+    RecruiterInvitation:
+      type: object
+      properties:
+        id: *id001
+        startup_id: *id001
+        user_id: *id001
+        status:
+          type: string
+          enum:
+          - pending
+          - accepted
+          - declined
+          - revoked
+          - expired
+        expires_at: *id003
+      required:
+      - id
+      - startup_id
+      - user_id
+      - status
+      - expires_at
+      additionalProperties: false
+    RecruiterGrant:
+      type: object
+      properties:
+        id: *id001
+        startup_id: *id001
+        user_id: *id001
+        granted_at: *id003
+      required:
+      - id
+      - startup_id
+      - user_id
+      - granted_at
+      additionalProperties: false
+    TestVersionCreate:
+      type: object
+      properties:
+        description:
+          type: string
+          minLength: 1
+        submission_deadline: *id003
+        change_type:
+          type: string
+          enum:
+          - initial
+          - ordinary
+          - critical
+        reason:
+          type: string
+      required:
+      - description
+      - submission_deadline
+      - change_type
+      additionalProperties: false
+    TestVersion:
+      type: object
+      properties:
+        id: *id001
+        vacancy_id: *id001
+        version: *id004
+        description:
+          type: string
+        submission_deadline: *id003
+        change_type:
+          type: string
+      required:
+      - id
+      - vacancy_id
+      - version
+      - description
+      - submission_deadline
+      - change_type
+      additionalProperties: false
+    TestSubmissionCreate:
+      type: object
+      properties:
+        test_version_id: *id001
+        solution_url:
+          type: string
+          format: uri
+          pattern: ^https://
+      required:
+      - test_version_id
+      - solution_url
+      additionalProperties: false
+    TestSubmission:
+      type: object
+      properties:
+        id: *id001
+        attempt_id: *id001
+        test_version_id: *id001
+        solution_url: *id007
+        status:
+          type: string
+          enum:
+          - submitted
+          - reviewed
+          - superseded
+        submitted_at: *id003
+      required:
+      - id
+      - attempt_id
+      - test_version_id
+      - solution_url
+      - status
+      - submitted_at
+      additionalProperties: false
+    TestReview:
+      type: object
+      properties:
+        status:
+          type: string
+          const: reviewed
+      required:
+      - status
+      additionalProperties: false
+    Notification:
+      type: object
+      properties:
+        id: *id001
+        title:
+          type: string
+        message:
+          type: string
+        read_at:
+          anyOf:
+          - *id003
+          - type: 'null'
+        created_at: *id003
+      required:
+      - id
+      - title
+      - message
+      - created_at
+      additionalProperties: false
+    Event:
+      type: object
+      properties:
+        id: *id001
+        event_type:
+          type: string
+        entity_type:
+          type: string
+        entity_id: *id001
+        created_at: *id003
+        metadata:
+          type: object
+          additionalProperties: true
+        actor_name: *id006
+      required:
+      - id
+      - event_type
+      - entity_type
+      - entity_id
+      - created_at
+      additionalProperties: false
+    Csrf:
+      type: object
+      properties:
+        csrf_token:
+          type: string
+      required:
+      - csrf_token
+      additionalProperties: false
+    ListStartup:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Startup'
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+      additionalProperties: false
+    ListVacancy:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Vacancy'
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+      additionalProperties: false
+    ListApplication:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Application'
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+      additionalProperties: false
+    ListOffer:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Offer'
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+      additionalProperties: false
+    ListMember:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Member'
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+      additionalProperties: false
+    ListRecruiterInvitation:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecruiterInvitation'
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+      additionalProperties: false
+    ListRecruiterGrant:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecruiterGrant'
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+      additionalProperties: false
+    ListVacancyVersion:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacancyVersion'
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+      additionalProperties: false
+    ListTestVersion:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestVersion'
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+      additionalProperties: false
+    ListTestSubmission:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestSubmission'
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+      additionalProperties: false
+    ListNotification:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+      additionalProperties: false
+    ListEvent:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+      additionalProperties: false
+    Attempt:
+      type: object
+      properties:
+        id: *id001
+        application_id: *id001
+        status:
+          type: string
+        message:
+          type: string
+        rejection_reason:
+          type: string
+        is_current: *id002
+        vacancy_version_id: *id005
+        created_at: *id003
+        vacancy_version:
+          anyOf:
+          - *id004
+          - type: 'null'
+        title: *id006
+        description: *id006
+        requirements: *id006
+      required:
+      - id
+      - application_id
+      - status
+      - message
+      - rejection_reason
+      - is_current
+      - created_at
+      additionalProperties: false
+    ListAttempt:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attempt'
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+      additionalProperties: false
+    ListUser:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - items
+      - next_cursor
+      additionalProperties: false
+paths:
+  /auth/login:
+    post:
+      operationId: post_auth_login
+      tags:
+      - auth
+      summary: Войти
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/logout:
+    post:
+      operationId: post_auth_logout
+      tags:
+      - auth
+      summary: Выйти
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      responses:
+        '204':
+          description: Success, no response body
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/me:
+    get:
+      operationId: get_auth_me
+      tags:
+      - auth
+      summary: Текущий пользователь
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/csrf:
+    get:
+      operationId: get_auth_csrf
+      tags:
+      - auth
+      summary: CSRF токен
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Csrf'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /users/{user_id}:
+    get:
+      operationId: get_users_user_id
+      tags:
+      - users
+      summary: Публичный профиль
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /users/me:
+    patch:
+      operationId: patch_users_me
+      tags:
+      - users
+      summary: Изменить свой профиль
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      parameters:
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /startups:
+    get:
+      operationId: get_startups
+      tags:
+      - startups
+      summary: Лента стартапов
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      - name: scope
+        in: query
+        schema:
+          type: string
+          enum:
+          - public
+          - managed
+          - member
+          default: public
+        description: 'public: active feed; managed: own startups and current recruiter grants, including paused/archived.'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListStartup'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: ' Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20).
+        Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.'
+    post:
+      operationId: post_startups
+      tags:
+      - startups
+      summary: Создать стартап
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartupCreate'
+      parameters:
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      responses:
+        '201':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Startup'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /startups/{startup_id}:
+    get:
+      operationId: get_startups_startup_id
+      tags:
+      - startups
+      summary: Просмотр стартапа
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Startup'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      operationId: patch_startups_startup_id
+      tags:
+      - startups
+      summary: Изменить стартап
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartupUpdate'
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Startup'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: delete_startups_startup_id
+      tags:
+      - startups
+      summary: Удалить стартап без истории
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '204':
+          description: Success, no response body
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /startups/{startup_id}/pause:
+    post:
+      operationId: post_startups_startup_id_pause
+      tags:
+      - startups
+      summary: pause стартап
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Startup'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /startups/{startup_id}/resume:
+    post:
+      operationId: post_startups_startup_id_resume
+      tags:
+      - startups
+      summary: resume стартап
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Startup'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /startups/{startup_id}/archive:
+    post:
+      operationId: post_startups_startup_id_archive
+      tags:
+      - startups
+      summary: archive стартап
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Startup'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /vacancies:
+    get:
+      operationId: get_vacancies
+      tags:
+      - vacancies
+      summary: Лента вакансий
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListVacancy'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: ' Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20).
+        Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.'
+  /vacancies/{vacancy_id}:
+    get:
+      operationId: get_vacancies_vacancy_id
+      tags:
+      - vacancies
+      summary: Просмотр вакансии
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: vacancy_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vacancy'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /startups/{startup_id}/vacancies:
+    get:
+      operationId: get_startups_startup_id_vacancies
+      tags:
+      - vacancies
+      summary: Вакансии стартапа
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListVacancy'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: ' Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20).
+        Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.'
+    post:
+      operationId: post_startups_startup_id_vacancies
+      tags:
+      - vacancies
+      summary: Создать вакансию
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VacancyCreate'
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '201':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vacancy'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /vacancies/{vacancy_id}/versions:
+    post:
+      operationId: post_vacancies_vacancy_id_versions
+      tags:
+      - vacancies
+      summary: Создать версию вакансии
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VacancyChange'
+      parameters:
+      - name: vacancy_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '201':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacancyVersion'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      operationId: get_vacancies_vacancy_id_versions
+      tags:
+      - vacancies
+      summary: История версий вакансии
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: vacancy_id
+        in: path
+        required: true
+        schema: *id001
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListVacancyVersion'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: ' Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20).
+        Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.'
+  /vacancies/{vacancy_id}/close-intake:
+    post:
+      operationId: post_vacancies_vacancy_id_close_intake
+      tags:
+      - vacancies
+      summary: close-intake вакансию
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: vacancy_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vacancy'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /vacancies/{vacancy_id}/reopen-intake:
+    post:
+      operationId: post_vacancies_vacancy_id_reopen_intake
+      tags:
+      - vacancies
+      summary: reopen-intake вакансию
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: vacancy_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vacancy'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /vacancies/{vacancy_id}/archive:
+    post:
+      operationId: post_vacancies_vacancy_id_archive
+      tags:
+      - vacancies
+      summary: archive вакансию
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: vacancy_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vacancy'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /vacancies/{vacancy_id}/capacity:
+    get:
+      operationId: get_vacancies_vacancy_id_capacity
+      tags:
+      - vacancies
+      summary: Места в вакансии
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: vacancy_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Capacity'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /vacancies/{vacancy_id}/settings:
+    patch:
+      operationId: patch_vacancies_vacancy_id_settings
+      tags:
+      - vacancies
+      summary: Обновить срок или число мест
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VacancySettings'
+      parameters:
+      - name: vacancy_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vacancy'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: positions_count may not be reduced below occupied plus unexpired reserved seats, evaluated inside startup-locked
+        transaction.
+  /applications:
+    post:
+      operationId: post_applications
+      tags:
+      - applications
+      summary: Создать отклик
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationCreate'
+      parameters:
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      responses:
+        '201':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /applications/mine:
+    get:
+      operationId: get_applications_mine
+      tags:
+      - applications
+      summary: Мои отклики
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListApplication'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: ' Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20).
+        Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.'
+  /applications/{application_id}:
+    get:
+      operationId: get_applications_application_id
+      tags:
+      - applications
+      summary: Подробности отклика
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Applicant or startup owner/active recruiter only. A team member without recruiter privileges is NOT allowed.
+  /startups/{startup_id}/applications:
+    get:
+      operationId: get_startups_startup_id_applications
+      tags:
+      - applications
+      summary: Полученные отклики стартапа
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListApplication'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Startup owner or active recruiter only; a normal team member has no access. Pages use UUID ascending order,
+        signed cursors bound to actor/path/filters, limit 1..100 (default 20). Invalid or mismatched cursors return 422; new
+        rows before the cursor appear on refresh.
+  /applications/{application_id}/withdraw:
+    post:
+      operationId: post_applications_application_id_withdraw
+      tags:
+      - applications
+      summary: withdraw отклик
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /applications/{application_id}/restore:
+    post:
+      operationId: post_applications_application_id_restore
+      tags:
+      - applications
+      summary: restore отклик
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /applications/{application_id}/review:
+    post:
+      operationId: post_applications_application_id_review
+      tags:
+      - applications
+      summary: review отклик
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /applications/{application_id}/reject:
+    post:
+      operationId: post_applications_application_id_reject
+      tags:
+      - applications
+      summary: Отклонить отклик
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectBody'
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /applications/{application_id}/attempts:
+    post:
+      operationId: post_applications_application_id_attempts
+      tags:
+      - applications
+      summary: Новая попытка после сброса
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttemptCreate'
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      operationId: get_applications_application_id_attempts
+      tags:
+      - applications
+      summary: Исторические попытки и условия
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema: *id001
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListAttempt'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Applicant or current owner/recruiter only; historical messages and exact vacancy conditions are preserved.
+        Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20). Invalid or
+        mismatched cursors return 422; new rows before the cursor appear on refresh.
+  /applications/{application_id}/history:
+    get:
+      operationId: get_applications_application_id_history
+      tags:
+      - history
+      summary: История отклика
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema: *id001
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEvent'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Applicant or startup owner/active recruiter only; private application events only. Pages use UUID ascending
+        order, signed cursors bound to actor/path/filters, limit 1..100 (default 20). Invalid or mismatched cursors return
+        422; new rows before the cursor appear on refresh.
+  /applications/{application_id}/offers:
+    post:
+      operationId: post_applications_application_id_offers
+      tags:
+      - offers
+      summary: Отправить приглашение
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OfferCreate'
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '201':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Offer'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /offers/mine:
+    get:
+      operationId: get_offers_mine
+      tags:
+      - offers
+      summary: Мои приглашения
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListOffer'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: ' Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20).
+        Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.'
+  /offers/{offer_id}:
+    get:
+      operationId: get_offers_offer_id
+      tags:
+      - offers
+      summary: Подробности приглашения
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: offer_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Offer'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Offer candidate or owner/active recruiter of the parent startup.
+  /offers/{offer_id}/accept:
+    post:
+      operationId: post_offers_offer_id_accept
+      tags:
+      - offers
+      summary: accept приглашение
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: offer_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Offer'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /offers/{offer_id}/decline:
+    post:
+      operationId: post_offers_offer_id_decline
+      tags:
+      - offers
+      summary: decline приглашение
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: offer_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Offer'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /offers/{offer_id}/revoke:
+    post:
+      operationId: post_offers_offer_id_revoke
+      tags:
+      - offers
+      summary: revoke приглашение
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: offer_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Offer'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Only owner/active recruiter; a recruiter cannot revoke an offer concerning their own candidacy. Candidate
+        accept/decline remain available.
+  /startups/{startup_id}/members:
+    get:
+      operationId: get_startups_startup_id_members
+      tags:
+      - team
+      summary: Участники команды
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListMember'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Current members are visible to authenticated users. Only owner/active recruiter may read departed membership
+        history. No email or departure reason is exposed. Pages use UUID ascending order, signed cursors bound to actor/path/filters,
+        limit 1..100 (default 20). Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.
+  /startups/{startup_id}/members/leave:
+    post:
+      operationId: post_startups_startup_id_members_leave
+      tags:
+      - team
+      summary: Покинуть стартап
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '204':
+          description: Success, no response body
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /startups/{startup_id}/members/{user_id}:
+    delete:
+      operationId: delete_startups_startup_id_members_user_id
+      tags:
+      - team
+      summary: Исключить участника
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: user_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '204':
+          description: Success, no response body
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /startups/{startup_id}/recruiter-invitations:
+    post:
+      operationId: post_startups_startup_id_recruiter_invitations
+      tags:
+      - recruiters
+      summary: Пригласить рекрутера
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecruiterInvitationCreate'
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '201':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecruiterInvitation'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      operationId: get_startups_startup_id_recruiter_invitations
+      tags:
+      - recruiters
+      summary: Приглашения рекрутеров стартапа
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListRecruiterInvitation'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Startup owner only. Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100
+        (default 20). Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.
+  /recruiter-invitations/mine:
+    get:
+      operationId: get_recruiter_invitations_mine
+      tags:
+      - recruiters
+      summary: Мои приглашения рекрутером
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListRecruiterInvitation'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: ' Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20).
+        Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.'
+  /recruiter-invitations/{invitation_id}/accept:
+    post:
+      operationId: post_recruiter_invitations_invitation_id_accept
+      tags:
+      - recruiters
+      summary: accept рекрутерское приглашение
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: invitation_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecruiterInvitation'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /recruiter-invitations/{invitation_id}/decline:
+    post:
+      operationId: post_recruiter_invitations_invitation_id_decline
+      tags:
+      - recruiters
+      summary: decline рекрутерское приглашение
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: invitation_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecruiterInvitation'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /recruiter-invitations/{invitation_id}/revoke:
+    post:
+      operationId: post_recruiter_invitations_invitation_id_revoke
+      tags:
+      - recruiters
+      summary: Отозвать ожидающее приглашение рекрутера
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: invitation_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecruiterInvitation'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Only startup owner; only pending invitation can be revoked. Pause allows revocation; archive revokes pending
+        invitations.
+  /startups/{startup_id}/recruiters:
+    get:
+      operationId: get_startups_startup_id_recruiters
+      tags:
+      - recruiters
+      summary: Рекрутеры стартапа
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListRecruiterGrant'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: ' Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20).
+        Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.'
+  /startups/{startup_id}/recruiters/{user_id}:
+    delete:
+      operationId: delete_startups_startup_id_recruiters_user_id
+      tags:
+      - recruiters
+      summary: Отозвать полномочия
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: user_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '204':
+          description: Success, no response body
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /vacancies/{vacancy_id}/tests/current:
+    get:
+      operationId: get_vacancies_vacancy_id_tests_current
+      tags:
+      - tests
+      summary: Актуальное тестовое
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: vacancy_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestVersion'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /vacancies/{vacancy_id}/tests/versions:
+    get:
+      operationId: get_vacancies_vacancy_id_tests_versions
+      tags:
+      - tests
+      summary: Версии тестового
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: vacancy_id
+        in: path
+        required: true
+        schema: *id001
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListTestVersion'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Owner/active recruiter of parent startup, or candidate who has applied to this vacancy. Pages use UUID
+        ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20). Invalid or mismatched cursors
+        return 422; new rows before the cursor appear on refresh.
+    post:
+      operationId: post_vacancies_vacancy_id_tests_versions
+      tags:
+      - tests
+      summary: Создать версию тестового
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestVersionCreate'
+      parameters:
+      - name: vacancy_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '201':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestVersion'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /applications/{application_id}/test-submissions:
+    get:
+      operationId: get_applications_application_id_test_submissions
+      tags:
+      - tests
+      summary: Решения кандидата
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema: *id001
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListTestSubmission'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Applicant or startup owner/active recruiter only. Pages use UUID ascending order, signed cursors bound
+        to actor/path/filters, limit 1..100 (default 20). Invalid or mismatched cursors return 422; new rows before the cursor
+        appear on refresh.
+    post:
+      operationId: post_applications_application_id_test_submissions
+      tags:
+      - tests
+      summary: Отправить решение
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestSubmissionCreate'
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        description: Quoted resource revision; stale state returns 409 REVISION_CONFLICT. Replay of an existing command receipt
+          precedes this check.
+      responses:
+        '201':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestSubmission'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: 'Explicit test_version_id is required. Server never silently binds submission to another version. Newer
+        critical version causes TEST_VERSION_CONFLICT. Active attempts include offer_pending: a candidate with a pending offer
+        may submit a replacement solution.'
+  /test-submissions/{submission_id}:
+    patch:
+      operationId: patch_test_submissions_submission_id
+      tags:
+      - tests
+      summary: Проверить решение
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestReview'
+      parameters:
+      - name: submission_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestSubmission'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Only submitted solutions may be reviewed. Superseded or already reviewed submissions return 409 without
+        producing a review event.
+  /notifications:
+    get:
+      operationId: get_notifications
+      tags:
+      - notifications
+      summary: Мои уведомления
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListNotification'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: ' Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20).
+        Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.'
+  /notifications/{notification_id}/read:
+    patch:
+      operationId: patch_notifications_notification_id_read
+      tags:
+      - notifications
+      summary: Отметить прочитанным
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: notification_id
+        in: path
+        required: true
+        schema: *id001
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 120
+        description: Optional command receipt key. Reuse the same key after a lost response; same actor/key with a different
+          path, body or If-Match returns 409. Successful effects and receipts commit atomically.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /startups/{startup_id}/events:
+    get:
+      operationId: get_startups_startup_id_events
+      tags:
+      - history
+      summary: История событий стартапа
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEvent'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Startup owner or active recruiter only; no access for unrelated accounts or members without recruiter grants.
+        Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20). Invalid or
+        mismatched cursors return 422; new rows before the cursor appear on refresh.
+  /users:
+    get:
+      operationId: get_users
+      tags:
+      - users
+      summary: Поиск участника по имени
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      - name: query
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 2
+          maxLength: 120
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListUser'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: ' Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20).
+        Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.'
+  /startups/{startup_id}/offers:
+    get:
+      operationId: get_startups_startup_id_offers
+      tags:
+      - offers
+      summary: Приглашения стартапа
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: startup_id
+        in: path
+        required: true
+        schema: *id001
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListOffer'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Current owner/recruiter only. Pages use UUID ascending order, signed cursors bound to actor/path/filters,
+        limit 1..100 (default 20). Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.

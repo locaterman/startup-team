@@ -1,0 +1,49 @@
+.........A01 422 {"error":{"code":"VALIDATION_ERROR","message":"Invalid request","details":{"errors":[{"loc":"('path', 'offer_id')","msg":"Input should be a valid UUID, invalid character: found `m` at 0"}]},"request_id":"866f0dbe-9513-4975-b349-e2c251f6e1bf"}}
+.A02 duplicate creation; retried reset cancelled a newly submitted attempt
+.A03 old letter exists only in DB; offer message/version omitted; rejection reason never saved
+.A04 failed acceptance rolled back lazy expiry; unrelated GET committed it
+.A05 {'name': None} 500 Internal Server Error
+.A05 {'name': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'} 500 Internal Server Error
+.A05 {'bio': None} 500 Internal Server Error
+.A05 {'skills': None} 500 Internal Server Error
+.A06 limit/cursor/If-Match/unknown fields ignored; 104 startups -> only 100 reachable in feed
+.A07 review emitted success event without change; pending-offer candidate cannot submit critical replacement
+.A08 unrelated account sees membership id/user/join and departure timestamps
+.A09 direct SQL overbooks capacity; historical version reason/author mutable (no demonstrated API bypass)
+.A10 competing already_joined application cannot reapply after departure (product rule ambiguity)
+.A11 general startup application -> 500 Internal Server Error no application committed
+.A12 test list violates additionalProperties=false: ['created_at', 'created_by', 'reason'] ; no notification after offer
+.A13 candidate + recruiter revokes own offer as manager, returns own application to reviewing instead of terminal declined
+.A14 owner cabinet derives own list from feed; paused/archived project exists but absent from feed
+.TIME paused blocks new applications but allows existing offer acceptance; joined history preserved
+.TIME vacancy_archived blocks new applications but allows existing offer acceptance; joined history preserved
+.TIME intake_expired blocks new applications but allows existing offer acceptance; joined history preserved
+.RBAC unauth/outsider/candidate/member/former/recruiter/revoked/owner checked; CSRF/logout/expiry enforced
+.RACE last_seat reverse= False HTTP= 201 409 capacity= {'positions_count': 1, 'occupied': 0, 'reserved': 1, 'available': 0} offers= [{'offer': 'pending', 'attempt': 'offer_pending', 'active_members': 0}]
+.RACE accept_revoke reverse= False HTTP= 200 409 capacity= {'positions_count': 2, 'occupied': 1, 'reserved': 0, 'available': 1} offers= [{'offer': 'accepted', 'attempt': 'joined', 'active_members': 1}]
+.RACE accept_archive reverse= False HTTP= 200 200 capacity= {'positions_count': 2, 'occupied': 1, 'reserved': 0, 'available': 1} offers= [{'offer': 'accepted', 'attempt': 'joined', 'active_members': 1}]
+.RACE expiry reverse= False HTTP= 409 200 capacity= {'positions_count': 2, 'occupied': 0, 'reserved': 0, 'available': 2} offers= [{'offer': 'expired', 'attempt': 'reviewing', 'active_members': 0}]
+.RACE lower_invite reverse= False HTTP= 200 409 capacity= {'positions_count': 1, 'occupied': 0, 'reserved': 1, 'available': 0} offers= [{'offer': 'pending', 'attempt': 'offer_pending', 'active_members': 0}]
+.RACE leave_invite reverse= False HTTP= 204 201 capacity= {'positions_count': 1, 'occupied': 0, 'reserved': 1, 'available': 0} offers= [{'offer': 'accepted', 'attempt': 'joined', 'active_members': 0}, {'offer': 'pending', 'attempt': 'offer_pending', 'active_members': 0}]
+.RACE version_apply reverse= False HTTP= 201 201 capacity= {'positions_count': 2, 'occupied': 0, 'reserved': 0, 'available': 2} offers= []
+.RACE reset_resubmit reverse= False HTTP= 201 201 capacity= {'positions_count': 2, 'occupied': 0, 'reserved': 0, 'available': 2} offers= []
+.RACE revoke_edit reverse= False HTTP= 204 403 capacity= {'positions_count': 2, 'occupied': 0, 'reserved': 0, 'available': 2} offers= []
+.RACE critical_submit reverse= False HTTP= 201 409 capacity= {'positions_count': 2, 'occupied': 0, 'reserved': 0, 'available': 2} offers= []
+.RACE last_seat reverse= True HTTP= 201 409 capacity= {'positions_count': 1, 'occupied': 0, 'reserved': 1, 'available': 0} offers= [{'offer': 'pending', 'attempt': 'offer_pending', 'active_members': 0}]
+.RACE accept_revoke reverse= True HTTP= 200 409 capacity= {'positions_count': 2, 'occupied': 0, 'reserved': 0, 'available': 2} offers= [{'offer': 'revoked', 'attempt': 'reviewing', 'active_members': 0}]
+.RACE accept_archive reverse= True HTTP= 200 409 capacity= {'positions_count': 2, 'occupied': 0, 'reserved': 0, 'available': 2} offers= [{'offer': 'revoked', 'attempt': 'closed', 'active_members': 0}]
+.RACE expiry reverse= True HTTP= 200 409 capacity= {'positions_count': 2, 'occupied': 0, 'reserved': 0, 'available': 2} offers= [{'offer': 'expired', 'attempt': 'reviewing', 'active_members': 0}]
+.RACE lower_invite reverse= True HTTP= 201 409 capacity= {'positions_count': 2, 'occupied': 0, 'reserved': 2, 'available': 0} offers= [{'offer': 'pending', 'attempt': 'offer_pending', 'active_members': 0}, {'offer': 'pending', 'attempt': 'offer_pending', 'active_members': 0}]
+.RACE leave_invite reverse= True HTTP= 409 204 capacity= {'positions_count': 1, 'occupied': 0, 'reserved': 0, 'available': 1} offers= [{'offer': 'accepted', 'attempt': 'joined', 'active_members': 0}]
+.RACE version_apply reverse= True HTTP= 201 201 capacity= {'positions_count': 2, 'occupied': 0, 'reserved': 0, 'available': 2} offers= []
+.RACE reset_resubmit reverse= True HTTP= 201 201 capacity= {'positions_count': 2, 'occupied': 0, 'reserved': 0, 'available': 2} offers= []
+.RACE revoke_edit reverse= True HTTP= 201 204 capacity= {'positions_count': 2, 'occupied': 0, 'reserved': 0, 'available': 2} offers= []
+.RACE critical_submit reverse= True HTTP= 201 201 capacity= {'positions_count': 2, 'occupied': 0, 'reserved': 0, 'available': 2} offers= []
+.
+=============================== warnings summary ===============================
+../usr/local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /usr/local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+50 passed, 1 warning in 14.54s

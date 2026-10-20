@@ -1,0 +1,4 @@
+PASS: target OpenAPI structural check: 60 operations, 43 schemas, 440 resolved references; SQL tables present
+Implementation: 60 methods; target: 60; missing: 0; extra: 0
+/tmp/tmpkorbvtez/contracts/openapi.yaml: 53 paths, 60 operations, 43 schemas
+PASS: generator reproduces checked-in OpenAPI byte-for-byte

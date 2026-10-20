@@ -1,0 +1,36 @@
+Observed 2026-10-20 (Europe/Moscow); current workspace mounted read-only.
+
+Static tests in local startup_team_demo_macos-api image, network disabled:
+python -m pytest -q -p no:cacheprovider backend/tests/test_contract.py backend/tests/test_review_contract.py
+7 passed, 1 warning in 0.82s
+
+Contract checker:
+python tools/verify_contract.py --compare
+PASS: target OpenAPI structural check: 60 operations, 43 schemas, 440 resolved references; SQL tables present
+Implementation: 60 methods; target: 60; missing: 0; extra: 0
+
+Disposable PostgreSQL 16, tmpfs, no published ports, separate container:
+python3 docs/audit/run_isolated_postgres.py
+Initial Alembic upgrade completed successfully (process exit 0).
+2 passed, 1 warning in 0.59s
+The created PostgreSQL container was removed by the runner's finally block.
+
+HTTP probe with overridden auth/db dependencies, no real DB:
+GET /api/v1/offers/mine
+first_match=/api/v1/offers/{offer_id}
+422 VALIDATION_ERROR, message=Invalid request
+details.errors[0].loc=('path', 'offer_id')
+details.errors[0].msg=Input should be a valid UUID, invalid character: found `m` at 0
+
+GET /api/v1/applications/mine
+first_match=/api/v1/applications/mine
+200 {"items": [], "next_cursor": null}
+
+GET /api/v1/recruiter-invitations/mine
+first_match=/api/v1/recruiter-invitations/mine
+200 {"items": [], "next_cursor": null}
+
+Warning in test runs: StarletteDeprecationWarning about httpx/TestClient.
+No full frontend rebuild, browser walkthrough, concurrent test, existing-DB upgrade,
+restart persistence test, or live authorization test for the route probe was performed.
+Main Compose containers remained paused; no main database writes were performed.

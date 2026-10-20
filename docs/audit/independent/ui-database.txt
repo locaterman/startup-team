@@ -1,0 +1,3 @@
+applications=1
+offers=1
+revision=0001_initial

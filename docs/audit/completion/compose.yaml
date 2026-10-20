@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: startup
+      POSTGRES_PASSWORD: independent-audit-only
+      POSTGRES_DB: startup_test_ui_completion
+    volumes:
+      - completion_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U startup -d startup_test_ui_completion]
+      interval: 1s
+      retries: 30
+  api:
+    image: startup-completion-api
+    working_dir: /app
+    volumes:
+      - ../../..:/app:ro
+    environment:
+      DATABASE_URL: postgresql+psycopg://startup:independent-audit-only@db:5432/startup_test_ui_completion
+      CSRF_SECRET: independent-audit-only
+      PYTHONPATH: /app/backend
+      PYTHONDONTWRITEBYTECODE: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+  web:
+    image: startup-completion-web
+    ports:
+      - 127.0.0.1:18082:80
+    depends_on: [api]
+    networks: [default, ui]
+networks:
+  default:
+    internal: true
+  ui: {}
+
+volumes:
+  completion_data: {}

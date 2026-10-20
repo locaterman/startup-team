@@ -1,0 +1,271 @@
+--- docs/audit/remediation/main.before.py.txt	2026-10-20 01:12:56
++++ backend/app/main.py	2026-10-20 01:13:18
+@@ -6,7 +6,7 @@
+ from fastapi.responses import JSONResponse
+ from fastapi.encoders import jsonable_encoder
+ from fastapi.exceptions import RequestValidationError
+-from pydantic import BaseModel, Field, EmailStr
++from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+ from sqlalchemy import text
+ from sqlalchemy.engine import Connection
+ from .database import db
+@@ -40,6 +40,13 @@
+         reopen_attempt_after_offer(conn, offer['attempt_id'], startup_id)
+         evt(conn,startup_id,None,'offer',offer['id'],'offer.expired')
+ 
++def refresh_candidate_offers(conn, user_id):
++    # All multi-startup refreshes acquire locks in the same UUID order.
++    startups=run(conn,"SELECT DISTINCT startup_id FROM offers WHERE candidate_id=:u AND status='pending' ORDER BY startup_id",u=user_id).mappings().all()
++    for row in startups:
++        lock_startup(conn,row['startup_id'])
++        expire_offers(conn,row['startup_id'])
++
+ def reopen_attempt_after_offer(conn, attempt_id, startup_id):
+     # Offer is no longer pending: continue selection only if vacancy is active.
+     row=run(conn,"""SELECT a.vacancy_id,s.status AS startup_status,v.status AS vacancy_status
+@@ -72,15 +79,34 @@
+ async def validation_error(request:Request,exc:RequestValidationError):
+     return JSONResponse(status_code=422,content={'error':{'code':'VALIDATION_ERROR','message':'Invalid request','details':{'errors':[{'loc':str(e.get('loc')),'msg':e.get('msg')} for e in exc.errors()]},'request_id':str(uuid.uuid4())}})
+ 
+-class Login(BaseModel):email:str=Field(min_length=3,max_length=254,pattern=r'^[^@\s]+@[^@\s]+\.[^@\s]+$');password:str
+-class StartupCreate(BaseModel):title:str=Field(min_length=1,max_length=180);description:str='';allow_general_applications:bool=True
+-class StartupUpdate(BaseModel):title:str|None=None;description:str|None=None;allow_general_applications:bool|None=None
+-class VacancyCreate(BaseModel):title:str=Field(min_length=1,max_length=180);description:str='';requirements:str='';positions_count:int=Field(ge=1);application_deadline:datetime
+-class ApplicationCreate(BaseModel):target_type:Literal['startup','vacancy'];target_id:uuid.UUID;message:str=Field('',max_length=5000)
+-class RejectBody(BaseModel):reason:str=''
+-class OfferCreate(BaseModel):expires_at:datetime;message:str=''
+-class UserUpdate(BaseModel):name:str|None=None;bio:str|None=None;skills:list[str]|None=None;portfolio_url:str|None=None
++class RequestModel(BaseModel):
++    model_config = ConfigDict(extra='forbid')
++
++    @field_validator('name', 'title', mode='before', check_fields=False)
++    @classmethod
++    def trim_label(cls, value):
++        return value.strip() if isinstance(value, str) else value
++
++class PatchModel(RequestModel):
++    @model_validator(mode='before')
++    @classmethod
++    def reject_explicit_null(cls, values):
++        if isinstance(values, dict):
++            for key, value in values.items():
++                if key != 'portfolio_url' and value is None:
++                    raise ValueError(f'{key} must not be null; omit unchanged fields')
++        return values
+ 
++class Login(RequestModel):email:str=Field(min_length=3,max_length=254,pattern=r'^[^@\s]+@[^@\s]+\.[^@\s]+$');password:str=Field(min_length=1)
++class StartupCreate(RequestModel):title:str=Field(min_length=1,max_length=180);description:str='';allow_general_applications:bool=True
++class StartupUpdate(PatchModel):title:str|None=Field(default=None,min_length=1,max_length=180);description:str|None=None;allow_general_applications:bool|None=None
++class VacancyCreate(RequestModel):title:str=Field(min_length=1,max_length=180);description:str='';requirements:str='';positions_count:int=Field(ge=1);application_deadline:datetime
++class AttemptCreate(RequestModel):message:str=Field('',max_length=5000)
++class ApplicationCreate(RequestModel):target_type:Literal['startup','vacancy'];target_id:uuid.UUID;message:str=Field('',max_length=5000)
++class RejectBody(RequestModel):reason:str=Field('',max_length=2000)
++class OfferCreate(RequestModel):expires_at:datetime;message:str=Field('',max_length=5000)
++class UserUpdate(PatchModel):name:str|None=Field(default=None,min_length=1,max_length=120);bio:str|None=Field(default=None,max_length=5000);skills:list[str]|None=None;portfolio_url:str|None=None
++
+ @app.get('/healthz')
+ def health():return {'status':'ok'}
+ 
+@@ -125,8 +151,9 @@
+     return public_user(me['id'],conn,me)
+ 
+ @app.get('/api/v1/startups')
+-def list_startups(conn:Connection=Depends(db),me=Depends(auth)):
+-    return items(run(conn,"SELECT id,owner_id,title,description,status,allow_general_applications,revision FROM startups WHERE status='active' ORDER BY created_at DESC LIMIT 100").mappings().all())
++def list_startups(scope:Literal['public','managed']='public',conn:Connection=Depends(db),me=Depends(auth)):
++    condition = "s.status='active'" if scope == 'public' else "(s.owner_id=:u OR EXISTS (SELECT 1 FROM recruiter_grants g WHERE g.startup_id=s.id AND g.user_id=:u AND g.revoked_at IS NULL))"
++    return items(run(conn,f"SELECT s.id,s.owner_id,s.title,s.description,s.status,s.allow_general_applications,s.revision FROM startups s WHERE {condition} ORDER BY s.created_at DESC,s.id DESC LIMIT 100",u=me['id']).mappings().all())
+ @app.post('/api/v1/startups',status_code=201)
+ def create_startup(body:StartupCreate,conn:Connection=Depends(db),me=Depends(auth)):
+     r=run(conn,'''INSERT INTO startups (owner_id,title,description,allow_general_applications)
+@@ -224,8 +251,10 @@
+         guard(v['status']=='published' and v['application_deadline']>ts(conn),'APPLICATIONS_CLOSED')
+         vacancy_id=body.target_id
+         version_id=run(conn,'SELECT id FROM vacancy_versions WHERE vacancy_id=:v AND version=:n',v=vacancy_id,n=v['current_version']).scalar()
+-    old=run(conn,'''SELECT id FROM applications WHERE applicant_id=:u AND startup_id=:s
+-       AND ((:v IS NULL AND vacancy_id IS NULL) OR vacancy_id=:v)''',u=me['id'],s=sid,v=vacancy_id).scalar()
++    if vacancy_id is None:
++        old=run(conn,'SELECT id FROM applications WHERE applicant_id=:u AND startup_id=:s AND vacancy_id IS NULL',u=me['id'],s=sid).scalar()
++    else:
++        old=run(conn,'SELECT id FROM applications WHERE applicant_id=:u AND vacancy_id=:v',u=me['id'],v=vacancy_id).scalar()
+     guard(old is None,'APPLICATION_ALREADY_EXISTS')
+     aid=run(conn,'INSERT INTO applications(applicant_id,startup_id,vacancy_id) VALUES(:u,:s,:v) RETURNING id',u=me['id'],s=sid,v=vacancy_id).scalar()
+     run(conn,'''INSERT INTO application_attempts(application_id,vacancy_version_id,status,message)
+@@ -235,6 +264,7 @@
+ 
+ @app.get('/api/v1/applications/mine')
+ def my_apps(conn:Connection=Depends(db),me=Depends(auth)):
++    refresh_candidate_offers(conn,me['id'])
+     rows=run(conn,'''SELECT a.id,a.applicant_id,a.startup_id,a.vacancy_id,at.id AS attempt_id,
+       at.status,at.message,at.revision,at.created_at FROM applications a JOIN application_attempts at
+       ON at.application_id=a.id AND at.is_current=TRUE WHERE a.applicant_id=:u ORDER BY at.created_at DESC''',u=me['id']).mappings().all()
+@@ -243,6 +273,7 @@
+ def received(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):
+     s=lock_startup(conn,startup_id)
+     guard(can_manage(conn,s,me['id']),'PERMISSION_DENIED',403)
++    expire_offers(conn,startup_id)
+     rows=run(conn,'''SELECT a.id,a.applicant_id,a.startup_id,a.vacancy_id,at.id AS attempt_id,
+       at.status,at.message,at.revision,at.created_at FROM applications a JOIN application_attempts at
+       ON at.application_id=a.id AND at.is_current=TRUE WHERE a.startup_id=:s ORDER BY at.created_at DESC''',s=startup_id).mappings().all()
+@@ -253,7 +284,9 @@
+     if not r:err('APPLICATION_NOT_FOUND',404)
+     if str(r['applicant_id'])!=str(me['id']):
+         s=lock_startup(conn,r['startup_id']);guard(can_manage(conn,s,me['id']),'PERMISSION_DENIED',403)
+-    return serialize_application(r)
++    lock_startup(conn,r['startup_id'])
++    expire_offers(conn,r['startup_id'])
++    return serialize_application(application_row(conn,application_id))
+ 
+ def act_on_app(application_id,action,conn,me):
+     r=application_row(conn,application_id)
+@@ -333,28 +366,43 @@
+ def get_offer(offer_id,conn,me):
+     r=run(conn,'SELECT * FROM offers WHERE id=:id',id=offer_id).mappings().first()
+     if not r:err('OFFER_NOT_FOUND',404)
++    s=lock_startup(conn,r['startup_id'])
+     if str(r['candidate_id'])!=str(me['id']):
+-        s=lock_startup(conn,r['startup_id']);guard(can_manage(conn,s,me['id']),'PERMISSION_DENIED',403)
++        guard(can_manage(conn,s,me['id']),'PERMISSION_DENIED',403)
++    expire_offers(conn,r['startup_id'])
++    r=run(conn,'SELECT * FROM offers WHERE id=:id',id=offer_id).mappings().one()
+     return record({k:r[k] for k in ['id','startup_id','candidate_id','vacancy_id','status','expires_at','revision']})
+-@app.get('/api/v1/offers/{offer_id}')
+-def offer_details(offer_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):return get_offer(offer_id,conn,me)
+ @app.get('/api/v1/offers/mine')
+ def offers_mine(conn:Connection=Depends(db),me=Depends(auth)):
++    refresh_candidate_offers(conn,me['id'])
+     rows=run(conn,'SELECT id,startup_id,candidate_id,vacancy_id,status,expires_at,revision FROM offers WHERE candidate_id=:u ORDER BY created_at DESC',u=me['id']).mappings().all()
+     return items(rows)
+ 
++@app.get('/api/v1/offers/{offer_id}')
++def offer_details(offer_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):return get_offer(offer_id,conn,me)
++
+ def decide_offer(offer_id, action, conn, me):
+     first=run(conn,'SELECT startup_id FROM offers WHERE id=:o',o=offer_id).mappings().first()
+     if not first:err('OFFER_NOT_FOUND',404)
+-    s=lock_startup(conn,first['startup_id']);expire_offers(conn,s['id'])
++    s=lock_startup(conn,first['startup_id'])
+     r=run(conn,'SELECT * FROM offers WHERE id=:o',o=offer_id).mappings().one()
+-    guard(r['status']=='pending','INVALID_STATE_TRANSITION')
+-    if action=='revoke':guard(can_manage(conn,s,me['id']),'PERMISSION_DENIED',403)
++    if action=='revoke':
++        guard(can_manage(conn,s,me['id']),'PERMISSION_DENIED',403)
++        guard(str(r['candidate_id'])!=str(me['id']),'SELF_REVIEW_FORBIDDEN',403)
+     else:guard(str(r['candidate_id'])==str(me['id']),'PERMISSION_DENIED',403)
++    expire_offers(conn,s['id'])
++    r=run(conn,'SELECT * FROM offers WHERE id=:o',o=offer_id).mappings().one()
++    if r['status']=='expired':
++        # The command is refused, but the independent clock transition must commit.
++        # No candidate decision or membership has been written on this path.
++        return JSONResponse(status_code=409,content={'error':{'code':'OFFER_EXPIRED','message':'Offer expired','details':{},'request_id':str(uuid.uuid4())}})
++    guard(r['status']=='pending','INVALID_STATE_TRANSITION')
+     if action=='accept':
+         guard(s['status']!='archived','STARTUP_ARCHIVED')
+         guard(not is_member(conn,s['id'],me['id']),'ALREADY_TEAM_MEMBER')
+-        guard(r['expires_at']>ts(conn),'OFFER_EXPIRED')
++        if r['expires_at']<=ts(conn):
++            expire_offers(conn,s['id'])
++            return JSONResponse(status_code=409,content={'error':{'code':'OFFER_EXPIRED','message':'Offer expired','details':{},'request_id':str(uuid.uuid4())}})
+         if r['vacancy_id']:
+             # Pending invitation already reserves a place: capacity remains consistent.
+             cap=capacity_locked(conn,r['vacancy_id'])
+@@ -393,7 +441,10 @@
+ 
+ @app.get('/api/v1/startups/{startup_id}/members')
+ def members(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):
+-    rows=run(conn,'SELECT id,startup_id,user_id,joined_at,left_at FROM startup_members WHERE startup_id=:s ORDER BY joined_at',s=startup_id).mappings().all()
++    s=lock_startup(conn,startup_id)
++    history=can_manage(conn,s,me['id'])
++    condition='' if history else ' AND left_at IS NULL'
++    rows=run(conn,'SELECT id,startup_id,user_id,joined_at,left_at FROM startup_members WHERE startup_id=:s'+condition+' ORDER BY joined_at,id',s=startup_id).mappings().all()
+     return items(rows)
+ @app.post('/api/v1/startups/{startup_id}/members/leave',status_code=204)
+ def leave_team(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):
+@@ -411,13 +462,13 @@
+     return None
+ 
+ # --- Vacancy changes and resubmission after a reset ---
+-class VacancyChange(BaseModel):
++class VacancyChange(RequestModel):
+     title:str=Field(min_length=1,max_length=180)
+     description:str=''
+     requirements:str=''
+     change_mode:Literal['keep_applications','reset_applications']
+     reason:str=''
+-class VacancySettings(BaseModel):
++class VacancySettings(PatchModel):
+     positions_count:int|None=Field(default=None,ge=1)
+     application_deadline:datetime|None=None
+ 
+@@ -449,7 +500,7 @@
+     return record(r)
+ 
+ @app.post('/api/v1/applications/{application_id}/attempts',status_code=201)
+-def resubmit(application_id:uuid.UUID,body:dict,conn:Connection=Depends(db),me=Depends(auth)):
++def resubmit(application_id:uuid.UUID,body:AttemptCreate,conn:Connection=Depends(db),me=Depends(auth)):
+     a=run(conn,'SELECT id,startup_id,applicant_id,vacancy_id FROM applications WHERE id=:id',id=application_id).mappings().first()
+     if not a:err('APPLICATION_NOT_FOUND',404)
+     s=lock_startup(conn,a['startup_id'])
+@@ -471,7 +522,7 @@
+         latest=None
+     run(conn,'UPDATE application_attempts SET is_current=FALSE WHERE id=:id',id=current['attempt_id'])
+     run(conn,'''INSERT INTO application_attempts(application_id,vacancy_version_id,message,status)
+-       VALUES(:app,:version,:message,'pending')''',app=application_id,version=latest,message=str(body.get('message',''))[:5000])
++       VALUES(:app,:version,:message,'pending')''',app=application_id,version=latest,message=body.message)
+     evt(conn,s['id'],me['id'],'application',application_id,'application.resubmitted')
+     return serialize_application(application_row(conn,application_id))
+ 
+@@ -517,7 +568,7 @@
+     return get_vacancy(vacancy_id,conn,me)
+ 
+ # --- External recruiters ---
+-class RecruiterInvite(BaseModel):user_id:uuid.UUID;expires_at:datetime
++class RecruiterInvite(RequestModel):user_id:uuid.UUID;expires_at:datetime
+ @app.post('/api/v1/startups/{startup_id}/recruiter-invitations',status_code=201)
+ def invite_recruiter(startup_id:uuid.UUID,body:RecruiterInvite,conn:Connection=Depends(db),me=Depends(auth)):
+     s=lock_startup(conn,startup_id);owner_only(s,me['id']);guard(s['status']=='active','STARTUP_INACTIVE')
+@@ -579,13 +630,13 @@
+     return None
+ 
+ # --- Tests, histories, notifications, and deletion ---
+-class TestVersionCreate(BaseModel):
++class TestVersionCreate(RequestModel):
+     description:str=Field(min_length=1)
+     submission_deadline:datetime
+     change_type:Literal['initial','ordinary','critical']
+     reason:str=''
+-class SubmissionCreate(BaseModel):test_version_id:uuid.UUID;solution_url:str=Field(pattern='^https://',min_length=9)
+-class SubmissionReview(BaseModel):status:Literal['reviewed']
++class SubmissionCreate(RequestModel):test_version_id:uuid.UUID;solution_url:str=Field(pattern='^https://',min_length=9)
++class SubmissionReview(RequestModel):status:Literal['reviewed']
+ 
+ def test_payload(row):
+     return record({k:row[k] for k in ['id','vacancy_id','version','description','submission_deadline','change_type']})
+@@ -601,7 +652,7 @@
+     s=lock_startup(conn,r['startup_id'])
+     allowed=can_manage(conn,s,me['id']) or bool(run(conn,'SELECT 1 FROM applications WHERE vacancy_id=:v AND applicant_id=:u',v=vacancy_id,u=me['id']).scalar())
+     guard(allowed,'PERMISSION_DENIED',403)
+-    return items(run(conn,'SELECT * FROM test_assignment_versions WHERE vacancy_id=:v ORDER BY version DESC',v=vacancy_id).mappings().all())
++    return items([test_payload(t) for t in run(conn,'SELECT * FROM test_assignment_versions WHERE vacancy_id=:v ORDER BY version DESC',v=vacancy_id).mappings().all()])
+ @app.post('/api/v1/vacancies/{vacancy_id}/tests/versions',status_code=201)
+ def create_test_version(vacancy_id:uuid.UUID,body:TestVersionCreate,conn:Connection=Depends(db),me=Depends(auth)):
+     r=run(conn,'SELECT startup_id FROM vacancies WHERE id=:v',v=vacancy_id).mappings().first()
+@@ -643,7 +694,7 @@
+     guard(str(a['applicant_id'])==str(me['id']),'PERMISSION_DENIED',403)
+     guard(a['vacancy_id'] is not None,'NO_TEST_FOR_GENERAL_APPLICATION')
+     current=application_row(conn,application_id)
+-    guard(current['status'] in ('pending','reviewing'),'APPLICATION_NOT_ACTIVE')
++    guard(current['status'] in ('pending','reviewing','offer_pending'),'APPLICATION_NOT_ACTIVE')
+     test=run(conn,'SELECT * FROM test_assignment_versions WHERE id=:v',v=body.test_version_id).mappings().first()
+     if not test:err('TEST_NOT_FOUND',404)
+     guard(test['vacancy_id']==a['vacancy_id'],'TEST_VERSION_CONFLICT')
+@@ -664,7 +715,8 @@
+     if not r:err('SUBMISSION_NOT_FOUND',404)
+     s=lock_startup(conn,r['startup_id'])
+     guard(can_manage(conn,s,me['id']) and str(me['id'])!=str(r['applicant_id']),'PERMISSION_DENIED',403)
+-    run(conn,"UPDATE test_submissions SET status='reviewed',reviewed_by=:user,reviewed_at=clock_timestamp() WHERE id=:id AND status='submitted'",user=me['id'],id=submission_id)
++    changed=run(conn,"UPDATE test_submissions SET status='reviewed',reviewed_by=:user,reviewed_at=clock_timestamp() WHERE id=:id AND status='submitted' RETURNING id",user=me['id'],id=submission_id).scalar()
++    guard(changed is not None,'SUBMISSION_NOT_REVIEWABLE')
+     evt(conn,s['id'],me['id'],'test_submission',submission_id,'test.reviewed')
+     return record(run(conn,'SELECT id,attempt_id,test_version_id,solution_url,status,submitted_at FROM test_submissions WHERE id=:id',id=submission_id).mappings().one())
+ @app.get('/api/v1/applications/{application_id}/history')
