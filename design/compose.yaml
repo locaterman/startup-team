@@ -1,0 +1,7 @@
+services:
+  design:
+    build:
+      context: .
+      dockerfile: prototypes/Dockerfile
+    ports:
+      - "127.0.0.1:${DESIGN_PORT:-8081}:80"
