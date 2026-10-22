@@ -121,6 +121,9 @@ export type Page<T> = { items: T[]; next_cursor: string | null };
 let csrf = "";
 const pending = new Map<string, string>();
 const messages: Record<string, string> = {
+  AUTH_REQUIRED: "Для продолжения войдите в аккаунт.",
+  SESSION_EXPIRED: "Сессия завершилась. Повторите вход. Если открыты две тестовые версии сайта, используйте для них разные адреса.",
+  INVALID_CSRF: "Сессия изменилась. Повторите вход и обновите страницу.",
   ONBOARDING_REQUIRED:
     "Завершите заполнение профиля перед этим действием.",
   INVALID_TELEGRAM_AUTH:
