@@ -83,7 +83,7 @@ test("vacancy reset preserves historical version, then resubmission occurs via o
     const row = candidate.page.locator(".vacancy-block").filter({ hasText: changedTitle });
     await expect(row).toBeVisible();
     await expect(row.getByRole("button", { name: "Новая попытка — через мои отклики" })).toBeDisabled();
-    await row.getByRole("button", { name: "Мои отклики" }).click();
+    await row.getByRole("button", { name: "Мои отклики", exact: true }).click();
     await expect(candidate.page.getByRole("heading", { name: "Мои отклики" })).toBeVisible();
 
     await candidate.page.getByRole("button", { name: "Подать заново" }).click();
