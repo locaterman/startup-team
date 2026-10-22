@@ -456,3 +456,43 @@
     min-height: 320px;
   }
 }
+
+/* The approved candidate inspector contains actual profile facts, not just
+   the application's letter. Profile reads come from GET /users/{id}. */
+.complete-workspace .cw-candidate-profile {
+  border-top: 1px solid var(--cw-line);
+  border-bottom: 1px solid var(--cw-line);
+  padding: 23px 0 24px;
+  margin: 27px 0 0;
+}
+.complete-workspace .cw-candidate-profile h4 {
+  color: var(--cw-muted);
+  font-size: 12px;
+  font-weight: 500;
+  margin: 0 0 14px;
+}
+.complete-workspace .cw-candidate-profile > p {
+  color: var(--cw-secondary);
+  font-size: 13px;
+  line-height: 1.9;
+  margin: 10px 0;
+}
+.complete-workspace .cw-candidate-facts {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 9px 15px;
+  margin: 17px 0 0;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.complete-workspace .cw-candidate-facts dt { color: var(--cw-muted); }
+.complete-workspace .cw-candidate-facts dd {
+  margin: 0;
+  color: var(--cw-text);
+  overflow-wrap: anywhere;
+}
+.complete-workspace .cw-candidate-facts a { color: var(--cw-accent); }
+@media (max-width: 650px) {
+  .complete-workspace .cw-candidate-facts { grid-template-columns: 1fr; gap: 3px; }
+  .complete-workspace .cw-candidate-facts dd { margin-bottom: 9px; }
+}
