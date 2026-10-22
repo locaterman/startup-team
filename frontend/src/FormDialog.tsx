@@ -50,10 +50,17 @@ export function FormDialog({
   }, [registerDismiss, dirty, busy, close]);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
-    root.current
-      ?.querySelector<HTMLElement>("input:not(:disabled),textarea:not(:disabled),select:not(:disabled),button:not(:disabled)")
-      ?.focus();
-    return () => previous?.focus();
+    // Click default focus can run after React mounts the dialog. Defer focus
+    // to the next animation frame so the first field wins over the trigger.
+    const frame = window.requestAnimationFrame(() => {
+      root.current
+        ?.querySelector<HTMLElement>("input:not(:disabled),textarea:not(:disabled),select:not(:disabled),button:not(:disabled)")
+        ?.focus();
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      previous?.focus();
+    };
   }, []);
   return (
     <div
