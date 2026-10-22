@@ -4,6 +4,7 @@ import { AppHeader } from "./AppHeader";
 import { getApplyState } from "./getApplyState";
 import "./discovery.css";
 import "./complete-workspace.css";
+import "./complete-records.css";
 import { api, all, setCsrf, dateTime, localDate, instant } from "./api";
 import { AuthScreen, OnboardingScreen } from "./AuthScreen";
 import { telegramApp, type AuthConfig, type AuthContext } from "./telegram";
