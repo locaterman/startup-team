@@ -1,0 +1,207 @@
+/* API-backed application, offer, membership and recruiter records.
+ * Composition is modelled on final/complete .list-row/.record-section/.timeline,
+ * but all data and mutations stay in the real FastAPI components.
+ */
+.complete-workspace .cw-record {
+  padding: 25px 0;
+  margin: 0;
+  background: transparent;
+  color: var(--cw-text);
+  border: 0;
+  border-bottom: 1px solid var(--cw-line);
+  border-radius: 0;
+  min-width: 0;
+}
+.complete-workspace .cw-record-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+}
+.complete-workspace .cw-record-identity {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.complete-workspace .cw-record-heading .status {
+  flex: 0 0 auto;
+  margin-top: 5px;
+  text-align: right;
+}
+.complete-workspace .cw-record-eyebrow {
+  font-size: 11px;
+  font-weight: 450;
+  letter-spacing: 0.3px;
+  line-height: 1.75;
+  color: var(--cw-muted);
+  margin: 0 0 7px;
+}
+.complete-workspace .cw-record h3 {
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -.35px;
+  line-height: 1.5;
+  color: var(--cw-text);
+  overflow-wrap: anywhere;
+}
+.complete-workspace .cw-record-role {
+  color: var(--cw-muted);
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 7px 0 0;
+}
+.complete-workspace .cw-record-preview {
+  color: var(--cw-secondary);
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+  margin: 10px 0 0;
+  max-width: 650px;
+}
+.complete-workspace .cw-record-reason {
+  background: #14243b;
+  color: var(--cw-secondary);
+  border-left: 2px solid #6689bf;
+  padding: 14px 18px;
+  margin: 20px 0 0;
+}
+.complete-workspace .cw-record-reason strong {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 12px;
+  color: var(--cw-text);
+}
+.complete-workspace .cw-record-reason p {font-size: 13px;line-height: 1.8;}
+.complete-workspace .cw-record-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 20px 0 0;
+}
+.complete-workspace .cw-record-actions .primary,
+.complete-workspace .cw-record-actions .outline {
+  min-height: 44px;
+  padding: 9px 14px;
+  font-size: 12px;
+}
+.complete-workspace .cw-record-actions .outline:first-child {
+  padding-left: 0;
+  border-color: transparent;
+  color: var(--cw-accent);
+}
+.complete-workspace .cw-manager-record .cw-record-heading {
+  align-items: flex-start;
+}
+.complete-workspace .cw-manager-record .cw-record-identity h3 {
+  font-size: 23px;
+}
+.complete-workspace .cw-candidate-detail .cw-record {
+  border: 0;
+  padding: 0;
+}
+.complete-workspace .cw-candidate-detail .cw-record-actions {
+  padding-bottom: 20px;
+}
+.complete-workspace .cw-record-detail {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin: 28px 0 0;
+  color: var(--cw-text);
+}
+.complete-workspace .cw-record-section {
+  margin: 28px 0 0;
+  padding: 24px 0 0;
+  border-top: 1px solid var(--cw-line);
+}
+.complete-workspace .cw-record-section h4 {
+  color: var(--cw-muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+  margin: 0 0 15px;
+}
+.complete-workspace .cw-record-section p {
+  line-height: 1.85;
+  font-size: 13px;
+  margin: 8px 0;
+  color: var(--cw-secondary);
+}
+.complete-workspace .cw-record-section > .history-item {
+  padding: 18px 0;
+}
+.complete-workspace .cw-record-section .history-item > strong {
+  color: var(--cw-text);
+  font-weight: 550;
+}
+.complete-workspace .cw-timeline {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0 0;
+}
+.complete-workspace .cw-timeline li {
+  border-left: 1px solid var(--cw-line);
+  padding: 0 0 24px 20px;
+  position: relative;
+  min-width: 0;
+}
+.complete-workspace .cw-timeline li::before {
+  content: "";
+  position: absolute;
+  background: var(--cw-muted);
+  top: 9px;
+  left: -3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+.complete-workspace .cw-timeline time {
+  display: block;
+  font-size: 10px;
+  color: var(--cw-muted);
+  margin-bottom: 7px;
+}
+.complete-workspace .cw-timeline strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--cw-text);
+}
+.complete-workspace .cw-timeline p {
+  font-size: 12px;
+  color: var(--cw-secondary);
+  margin: 6px 0 0;
+}
+.complete-workspace .cw-offer-record > details {
+  color: var(--cw-secondary);
+  margin: 15px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--cw-line);
+}
+.complete-workspace .cw-member-record h3 {
+  margin: 0 0 9px;
+}
+.complete-workspace .cw-member-record > p {
+  color: var(--cw-secondary);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.complete-workspace .cw-member-record > .outline {
+  margin-top: 13px;
+}
+@media (max-width: 650px) {
+  .complete-workspace .cw-record-heading {
+    gap: 10px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .complete-workspace .cw-record-heading .status {
+    align-self: flex-start;
+    text-align: left;
+  }
+  .complete-workspace .cw-record h3 { font-size: 17px; }
+  .complete-workspace .cw-record-actions { align-items: stretch; }
+  .complete-workspace .cw-record-actions .outline,
+  .complete-workspace .cw-record-actions .primary { justify-content: flex-start; }
+}
