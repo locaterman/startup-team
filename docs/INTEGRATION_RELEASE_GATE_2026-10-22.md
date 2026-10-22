@@ -6,13 +6,13 @@ Status: **OPEN / NOT ACCEPTED**. Applies only to `chatgpt/complete-api-integrati
 
 The original backend review and the complete-design review covered separate implementations. The current hybrid integration must be reviewed and tested as a **new system**. A TypeScript/Vite build is necessary but never a sufficient release criterion.
 
-## Confirmed defects and fixes (not yet browser-verified)
+## Confirmed defects and regression fixes
 
 - [x] Login/retry incorrectly emitted global "Готово" through `perform`: auth paths now use a separate single-flight handler.
 - [x] `SESSION_EXPIRED` was shown untranslated: client now maps error codes to Russian copy.
 - [x] A user with an existing vacancy application still saw an enabled "Откликнуться": the client now uses one authenticated `GET /applications/mine` response, suppresses duplicate submission UI, and links to existing attempts.
 - [x] Disabled auth / existing-application buttons lacked clearly distinct styling: disabled states are now dark grey.
-- [ ] Confirm the above fixes in a real browser after rebuilding the preview.
+- [x] Core login, logout, duplicate-submission, reset and resubmission flows passed on the isolated CI browser stack. Local Debian preview still needs an update and manual UI verification.
 
 ## Automated checks now implemented
 
@@ -20,27 +20,29 @@ The original backend review and the complete-design review covered separate impl
 - [x] API-client regression tests (cursor paging/cycle protection, credential mode, CSRF, Idempotency-Key, If-Match, session error localization).
 - [x] `frontend/Dockerfile` runs `npm test` before `npm run build`.
 - [x] GitHub Actions runs tests and TypeScript/Vite build: [successful run](https://github.com/locaterman/startup-team/actions/runs/39770048428).
-- [x] Playwright Chromium E2E on an **isolated disposable PostgreSQL/Compose stack**: three live browser scenarios passed and the database was deleted. Evidence: [GitHub Actions run](https://github.com/locaterman/startup-team/actions/runs/39774204131).
+- [x] **7 Playwright Chromium tests passed without retries** against an isolated disposable PostgreSQL/Compose stack: [GitHub Actions run](https://github.com/locaterman/startup-team/actions/runs/39777299638). Includes 12 sequential logins immediately followed by CSRF/profile/context reads, version reset and resubmission, capacity reservations/acceptance, recruiter grants/revocation, old-cookie login and two-account submission. Temporary database deleted.
+- [x] Found and fixed response framing bug: logout emits bodyless 204; pytest and ASGI-log checks pass.
+- [x] FastAPI >=0.121 and `Depends(db, scope="function")` ensure transaction commit precedes response delivery (including session creation). GitHub run above verifies actual behavior.
 
 ## P0 — required browser acceptance before merging
 
-- [x] Smoke evidence: fresh Chromium demo login and logout with no false "Готово"; additional single-request/CSRF-specific assertions remain to be implemented.
+- [x] Chromium demo login and logout with no false "Готово"; 12 immediate CSRF/profile/context reads after login all returned 200 without retries.
 - [ ] Expired session: show a correctly translated message where appropriate; "Повторить проверку" restores a valid existing session without spawning another login request; no false "Готово".
 - [ ] Distinct test-host cookies: old `127.0.0.1:18080` and preview `localhost:18086` do not collide. Do not compare two ports on the same hostname when testing independent sessions.
 - [ ] Login with two distinct demo users in isolated browser contexts; names, own applications, managed projects and private notifications never leak between users.
 - [ ] New startup + vacancy are persisted; refresh page, server state remains correct.
 - [x] Two-user Chromium flow: owner creates project and vacancy, candidate submits an application, UI disables duplicate Apply, refresh preserves disabled state, and "Мои отклики" shows the application.
 - [ ] Apply command errors, network loss and permission denial: no false success; form retained, retry cannot create duplicates; `Idempotency-Key` semantics maintained.
-- [ ] Attempt history and vacancy versions remain bound to historical conditions; don't infer from the current vacancy.
+- [x] Chromium + real API: original vacancy version retained after reset, new attempt references version 2; both historical versions and resubmission event verified.
 - [ ] Candidate review and offer: candidate, owner and recruiter views respect server access control and self-review restrictions.
-- [ ] Reserved/occupied vacancy capacity cannot be exceeded by concurrent offers/acceptance.
-- [ ] Recruiter invitation and grant remain separate; revoking recruiter access does not revoke membership.
+- [x] Sequential full-capacity flow: a pending offer reserves the last place, a second offer is rejected, accepted offer becomes occupied. **Concurrent race** test still outstanding.
+- [x] Owner-issued recruiter invitation, acceptance, delegated vacancy creation and revoke tested; recruiter grant did not create membership. **Grant revocation of an already-active member** still outstanding.
 - [ ] Read/unread notifications belong to the signed-in user; no synthetic target links.
-- [ ] Logout revokes session, clears CSRF/private state and does not show a success banner on the auth screen.
+- [x] Logout 204 has no body, deletes cookie, and browser returns to auth without success banner; separate backend HTTP framing pytest passes.
 - [ ] Telegram initData and first-time onboarding are tested on HTTPS in actual Telegram WebView (not inferred from demo login).
 
 
-**Scope note:** passing three smoke tests is not complete P0 acceptance. Telegram, concurrency, full UI parity, historical invariants, denied states and accessibility remain open.
+**Scope note:** passing seven browser tests is not complete P0 acceptance. Telegram WebView, true concurrent writes, full UI parity, some denied states and accessibility remain open.
 
 ## P1 — visual and interaction parity
 
@@ -69,4 +71,4 @@ The original backend review and the complete-design review covered separate impl
 
 1. Legacy global `frontend/src/style.css` is still imported; dark theme is partly a scoped override. Consequently "complete" visual parity **is not complete**.
 2. The current implementation still contains working UI logic inside a large `App.tsx` and reuses `ApplicationCard`, `OfferCard`, `VacancyView`, `FormDialog`, `Team` and `Recruiters`. They require scoped migration, not premature deletion.
-3. There is no automated browser E2E suite in `frontend`. A compilation success alone leaves functional and cross-session regressions untested.
+3. Chromium E2E and transactional commit tests are now automated, but the scope is still limited. These tests are not a substitute for full visual parity, accessibility, true concurrent capacity checks or Telegram WebView.
