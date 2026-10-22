@@ -391,3 +391,68 @@
   }
   .complete-workspace .cw-recruiter-row > .outline { margin-left: 0; }
 }
+
+/* Matches complete's Applications screen: distinct ruled record sections and
+   a centered call-to-action instead of plain text for empty applications. */
+.complete-workspace.cw-applications > .cw-heading {
+  border-bottom: 0;
+  padding-bottom: 24px;
+}
+.complete-workspace.cw-applications .cw-related-link {
+  border: 0;
+  background: transparent;
+  padding: 10px 0;
+  color: var(--cw-accent);
+  white-space: nowrap;
+}
+.complete-workspace.cw-applications .cw-applications-section {
+  border-top: 1px solid var(--cw-line);
+  padding-top: 28px;
+  margin-top: 32px;
+}
+.complete-workspace.cw-applications .cw-applications-first {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+.complete-workspace.cw-applications .cw-list-title {
+  margin: 0 0 22px !important;
+  font-size: 20px !important;
+  font-weight: 500;
+}
+.complete-workspace.cw-applications .cw-applications-section > .cw-muted {
+  line-height: 1.8;
+  padding: 12px 0;
+}
+.complete-workspace.cw-applications .cw-empty {
+  min-height: 255px;
+  padding: 50px 20px 35px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border: 0;
+  background: transparent;
+}
+.complete-workspace.cw-applications .cw-empty h2 {
+  font-size: 20px;
+  font-weight: 500;
+}
+.complete-workspace.cw-applications .cw-empty p {
+  max-width: 500px;
+  margin: 13px 0 22px;
+  line-height: 1.8;
+}
+@media(max-width:650px) {
+  .complete-workspace.cw-applications .cw-heading {
+    align-items: flex-start;
+  }
+  .complete-workspace.cw-applications .cw-related-link {
+    align-self: flex-start;
+  }
+  .complete-workspace.cw-applications .cw-empty {
+    min-height: 320px;
+  }
+}
