@@ -1,0 +1,25 @@
+# Overlay for a SEPARATE Telegram HTTPS deployment on the Debian host.
+# Usage: docker compose --env-file PRIVATE_ENV -f compose.yaml
+#   -f deploy/compose.telegram-staging.yaml -p startup_team_telegram up -d --build
+# Does not start a second Caddy: existing HOST Caddy is reverse proxy.
+services:
+  db:
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a private PostgreSQL password}
+  api:
+    restart: unless-stopped
+    environment:
+      CSRF_SECRET: ${CSRF_SECRET:?Set an independent private CSRF secret}
+      COOKIE_SECURE: "true"
+      ALLOW_DEMO_LOGIN: "false"
+      SEED_DEMO_ACCOUNTS: "false"
+      TELEGRAM_BOT_TOKEN: ""
+      TELEGRAM_BOT_TOKEN_FILE: /run/secrets/telegram_bot_token
+    volumes:
+      - type: bind
+        source: ${TELEGRAM_SECRET_PATH:?Private bot token file required}
+        target: /run/secrets/telegram_bot_token
+        read_only: true
+  web:
+    restart: unless-stopped
