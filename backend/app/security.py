@@ -24,7 +24,7 @@ def verify_password(password: str, stored: str) -> bool:
 def digest(token: str):return hashlib.sha256(token.encode()).hexdigest()
 def csrf(token: str):return hmac.new(SECRET.encode(),token.encode(),hashlib.sha256).hexdigest()
 
-def auth(request: Request,conn:Connection=Depends(db)):
+def auth(request: Request,conn:Connection=Depends(db, scope="function")):
     raw=request.cookies.get('session')
     if not raw:raise HTTPException(401,'AUTH_REQUIRED')
     row=conn.execute(text('''SELECT u.id,u.name,u.email,u.bio,u.skills,u.portfolio_url,u.telegram_id,u.onboarding_completed_at
