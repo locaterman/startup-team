@@ -1,0 +1,12 @@
+# Import this SITE BLOCK into the existing host Caddyfile.
+# Do not run a second Caddy container and do not expose 18087 publicly.
+# Requires DNS/Cloudflare routing and HTTPS connectivity for this hostname.
+startup.locatermanhass.ru {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:18087
+
+    header {
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}
