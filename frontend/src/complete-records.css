@@ -315,3 +315,79 @@
     margin-left: 20px; margin-right: 20px;
   }
 }
+
+/* Complete's horizontal vacancy/list-row compositions, with live version data. */
+.complete-workspace .cw-vacancy-record {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--cw-line);
+  padding: 26px 0;
+}
+.complete-workspace .cw-vacancy-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+}
+.complete-workspace .cw-vacancy-copy { flex: 1; min-width: 0; }
+.complete-workspace .cw-vacancy-copy > h3 {
+  color: var(--cw-text);
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: -.5px;
+  margin: 0 0 7px;
+}
+.complete-workspace .cw-vacancy-controls {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.complete-workspace .cw-vacancy-controls .outline {
+  margin: 0;
+  background: transparent;
+}
+.complete-workspace .cw-vacancy-record > .vacancy-apply-actions {
+  margin: 18px 0 0;
+}
+.complete-workspace .cw-recruiter-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 14px 24px;
+  padding: 25px 0;
+  border-bottom: 1px solid var(--cw-line);
+  color: var(--cw-text);
+  font-size: 14px;
+  min-width: 0;
+}
+.complete-workspace .cw-recruiter-row > .outline { margin-left: auto; }
+.complete-workspace .cw-recruiter-row > p {
+  color: var(--cw-secondary);
+  font-size: 12px;
+  margin: 0;
+}
+.complete-workspace .cw-recruiter-subheading {
+  margin: 35px 0 16px;
+  font-size: 18px;
+  font-weight: 500;
+}
+@media(max-width:650px) {
+  .complete-workspace .cw-vacancy-heading {
+    flex-direction: column;
+    gap: 13px;
+  }
+  .complete-workspace .cw-vacancy-controls {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .complete-workspace .cw-recruiter-row {
+    align-items: flex-start;
+  }
+  .complete-workspace .cw-recruiter-row > .outline { margin-left: 0; }
+}
