@@ -205,3 +205,20 @@
   .complete-workspace .detail {padding:24px 18px}
   .complete-workspace .vacancy-block .row {flex-direction:column}
 }
+
+/* A submitted application is a server-side state, not merely a pending click. */
+.integrated-design-page .vacancy-apply-actions {
+  display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:16px
+}
+.integrated-design-page .vacancy-apply-actions .vacancy-applied,
+.integrated-design-page .vacancy-apply-actions .vacancy-applied:disabled {
+  color:#aab7c8!important;
+  background:#293448!important;
+  border:1px solid #3b495d!important;
+  border-radius:4px!important;
+  opacity:1!important;
+  box-shadow:none!important;
+  cursor:not-allowed!important;
+  white-space:normal;
+}
+.integrated-design-page .vacancy-apply-actions .outline {margin-top:0}
