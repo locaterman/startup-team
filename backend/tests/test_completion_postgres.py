@@ -152,7 +152,7 @@ def test_incremental_upgrade_retains_data_or_refuses_corruption(invalid):
                 assert conn.execute(text('SELECT version_num FROM alembic_version')).scalar()=='0001_initial'
             else:
                 assert upgrade.returncode==0,upgrade.stderr
-                assert conn.execute(text('SELECT version_num FROM alembic_version')).scalar()=='0002_integrity_history'
+                assert conn.execute(text('SELECT version_num FROM alembic_version')).scalar()=='0003_telegram_auth'
                 assert conn.execute(text('SELECT rejection_reason FROM application_attempts')).scalar()==''
                 assert conn.execute(text("SELECT count(*) FROM pg_trigger WHERE tgname='tg_attempt_binding'")).scalar()==1
     finally:
@@ -207,7 +207,7 @@ def test_upgrade_from_observed_existing_schema():
         assert result.returncode==0,result.stderr
         with engine.connect() as conn:
             assert conn.execute(text('SELECT title FROM startups')).scalar()=='Retained on actual schema'
-            assert conn.execute(text('SELECT version_num FROM alembic_version')).scalar()=='0002_integrity_history'
+            assert conn.execute(text('SELECT version_num FROM alembic_version')).scalar()=='0003_telegram_auth'
             assert conn.execute(text("SELECT count(*) FROM information_schema.columns WHERE table_name='application_attempts' AND column_name='rejection_reason'")).scalar()==1
     finally:
         engine.dispose()

@@ -20,6 +20,10 @@ services:
       DATABASE_URL: postgresql+psycopg://startup:${POSTGRES_PASSWORD:-startup}@db:5432/startup
       CSRF_SECRET: ${CSRF_SECRET:-replace-with-long-random-secret}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_AUTH_MAX_AGE_SECONDS: ${TELEGRAM_AUTH_MAX_AGE_SECONDS:-300}
+      ALLOW_DEMO_LOGIN: ${ALLOW_DEMO_LOGIN:-true}
+      SEED_DEMO_ACCOUNTS: ${SEED_DEMO_ACCOUNTS:-true}
     depends_on:
       db:
         condition: service_healthy

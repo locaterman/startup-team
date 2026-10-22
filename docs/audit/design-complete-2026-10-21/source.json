@@ -1,0 +1,42 @@
+{
+  "original_commit": "1762b455b714828a029f4ad77cf34dfb8ed1110b",
+  "original_files_unchanged": 57,
+  "added_files": [
+    {
+      "path": "design/COMPLETE.md",
+      "sha256": "b8d7f1c3fbf9adaa79c2ff53e54808caa5eb078c41e673cb92c0afec27c4acd8"
+    },
+    {
+      "path": "design/compose.complete.yaml",
+      "sha256": "acd81c2ac94079e8be540735fd11b5c0e4942def5fe8c8d75ec31ae477fb3ae6"
+    },
+    {
+      "path": "design/prototypes/Dockerfile.complete",
+      "sha256": "bbff63f400dda9a8d6f198255b44868eb6f59e4e44100ace35f590d0b0ba1e99"
+    },
+    {
+      "path": "design/prototypes/complete.html",
+      "sha256": "bb31d81c98eafa06590c344002a631e641fe555cfeb17b2d8460f7521833f941"
+    },
+    {
+      "path": "design/prototypes/nginx.complete.conf",
+      "sha256": "967e688bd859a4c3f2453346b16c48e45cff1b65bda627c2542120de42edd59c"
+    },
+    {
+      "path": "design/prototypes/src/complete/main.tsx",
+      "sha256": "8cef3e5fd13abdcebdddafb986e3a6789290f31c8f2c1c1621f344ff7a5ee5fd"
+    },
+    {
+      "path": "design/prototypes/src/complete/model.ts",
+      "sha256": "0d40f13085090aea4beaa3121679ca70add177ec3129368f095e50fdd94dfa3f"
+    },
+    {
+      "path": "design/prototypes/src/complete/style.css",
+      "sha256": "962804eeea3fd310f52c4ad426cab2baa5be426ce3e6d3587ba4a07bef274411"
+    },
+    {
+      "path": "design/prototypes/vite.complete.config.ts",
+      "sha256": "9ba2727c06689427df2c1990bb5695c5ccdf28f7faac68364f7ddf12b2677b70"
+    }
+  ]
+}

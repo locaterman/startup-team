@@ -1,0 +1,22 @@
+[
+  {
+    "bodyWidth": 320,
+    "documentWidth": 320,
+    "width": 320
+  },
+  {
+    "bodyWidth": 390,
+    "documentWidth": 390,
+    "width": 390
+  },
+  {
+    "bodyWidth": 768,
+    "documentWidth": 768,
+    "width": 768
+  },
+  {
+    "bodyWidth": 1440,
+    "documentWidth": 1440,
+    "width": 1440
+  }
+]

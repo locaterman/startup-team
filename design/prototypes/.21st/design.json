@@ -1,0 +1,22 @@
+{
+  "product": "Бизнес-клуб НИУ ВШЭ",
+  "direction": "Premium Private Technology",
+  "entry": "final.html",
+  "historicalEntry": "index.html",
+  "decisions": [
+    "B is the only active direction; A/C retained only as historical evidence",
+    "Top navigation for three primary sections",
+    "Manrope with Cyrillic, locally hosted, SIL OFL",
+    "Vacancies in a right column on desktop and below description on mobile",
+    "Only a toolbar divider in the catalog; no repeated metadata",
+    "Untitled UI open header/underline-tab patterns adapted to React/CSS",
+    "Founder workspace presents candidate details next to the list",
+    "Final iteration: three aligned catalogue columns; lighter title hierarchy; selected candidate detail surface with actions near identity"
+  ],
+  "constraints": [
+    "No backend/API/domain changes",
+    "No production frontend integration",
+    "No commit/push/deployment"
+  ],
+  "previousEntry": "private.html"
+}

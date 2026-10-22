@@ -1,0 +1,38 @@
+ M .dockerignore
+ M .env.example
+ M .gitignore
+ M README.md
+ M backend/app/main.py
+ M backend/app/security.py
+ M backend/app/seed.py
+ M backend/tests/test_completion_postgres.py
+ M compose.yaml
+ M contracts/openapi.yaml
+ M docs/IMPLEMENTATION_STATUS.md
+ M docs/INDEPENDENT_REVIEW_BRIEF.md
+ M frontend/index.html
+ M frontend/src/App.tsx
+ M frontend/src/api.ts
+ M tools/generate_contract.py
+?? backend/alembic/versions/0003_telegram_auth.py
+?? backend/app/telegram_auth.py
+?? backend/tests/test_telegram_auth.py
+?? backend/tests/test_telegram_postgres.py
+?? compose.production.yaml
+?? deploy/
+?? design/
+?? docs/DESIGN_FIXES_2026-10-21.md
+?? docs/DESIGN_REVIEW_2026-10-21.md
+?? docs/INDEPENDENT_REVIEW_PROMPT_2026-10-21.md
+?? docs/ORIGINAL_SCOPE_GAPS_2026-10-21.md
+?? docs/TELEGRAM_SETUP.md
+?? docs/audit/adversarial-2026-10-21/
+?? docs/audit/design-complete-2026-10-21/
+?? docs/audit/design-review-2026-10-21/
+?? docs/audit/design-rules-2026-10-21/
+?? docs/audit/telegram-2026-10-21/
+?? frontend/public/
+?? frontend/src/AuthScreen.tsx
+?? frontend/src/auth.css
+?? frontend/src/telegram.ts
+?? tools/verify_telegram.py

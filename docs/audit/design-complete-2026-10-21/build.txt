@@ -1,0 +1,98 @@
+ Image startup-team-design-complete:local Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 653B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.complete
+#2 transferring dockerfile: 458B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/node:22-alpine
+#3 DONE 0.0s
+
+#4 [auth] library/nginx:pull token for registry-1.docker.io
+#4 DONE 0.0s
+
+#5 [internal] load metadata for docker.io/library/nginx:1.27-alpine
+#5 DONE 2.8s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 121B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 149.61kB done
+#7 DONE 0.0s
+
+#8 [stage-1 1/3] FROM docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+#8 resolve docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 0.0s done
+#8 DONE 0.0s
+
+#9 [build 1/7] FROM docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+#9 resolve docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 0.0s done
+#9 DONE 0.0s
+
+#10 [build 2/7] WORKDIR /preview/prototypes
+#10 CACHED
+
+#11 [build 3/7] COPY prototypes/package.json prototypes/package-lock.json ./
+#11 CACHED
+
+#12 [build 4/7] RUN npm ci
+#12 CACHED
+
+#13 [build 5/7] COPY prototypes/ ./
+#13 DONE 0.0s
+
+#14 [build 6/7] COPY tokens/ ../tokens/
+#14 DONE 0.0s
+
+#15 [build 7/7] RUN npx tsc --noEmit && npx vite build --config vite.complete.config.ts
+#15 1.783 vite v6.4.4 building for production...
+#15 1.822 transforming...
+#15 2.325 ✓ 41 modules transformed.
+#15 2.379 rendering chunks...
+#15 2.416 computing gzip size...
+#15 2.424 dist/index.html                               0.52 kB │ gzip:  0.36 kB
+#15 2.424 dist/private.html                             0.53 kB │ gzip:  0.37 kB
+#15 2.424 dist/final.html                               0.58 kB │ gzip:  0.37 kB
+#15 2.425 dist/complete.html                            0.67 kB │ gzip:  0.39 kB
+#15 2.425 dist/assets/complete-CdO3CAub.css            12.90 kB │ gzip:  3.20 kB
+#15 2.425 dist/assets/style-DW0V36Y0.css               17.24 kB │ gzip:  4.28 kB
+#15 2.425 dist/assets/historical-Dtdulq3p.css          19.87 kB │ gzip:  4.63 kB
+#15 2.425 dist/assets/privateTechnology-xXt-Q8mr.css   24.39 kB │ gzip:  4.92 kB
+#15 2.425 dist/assets/style-CehmhNhR.js                 1.46 kB │ gzip:  0.77 kB
+#15 2.425 dist/assets/historical-DbhTcTtq.js           15.90 kB │ gzip:  4.77 kB
+#15 2.425 dist/assets/final-DhvNMnfL.js                18.83 kB │ gzip:  5.65 kB
+#15 2.425 dist/assets/privateTechnology-B0soKUfH.js    20.57 kB │ gzip:  6.30 kB
+#15 2.425 dist/assets/complete-Dd4PXzdr.js             66.45 kB │ gzip: 16.32 kB
+#15 2.425 dist/assets/data-CuySRC26.js                229.60 kB │ gzip: 71.90 kB
+#15 2.425 ✓ built in 627ms
+#15 DONE 2.5s
+
+#8 [stage-1 1/3] FROM docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+#8 CACHED
+
+#16 [stage-1 2/3] COPY --from=build /preview/prototypes/dist /usr/share/nginx/html
+#16 DONE 0.0s
+
+#17 [stage-1 3/3] COPY prototypes/nginx.complete.conf /etc/nginx/conf.d/default.conf
+#17 DONE 0.0s
+
+#18 exporting to image
+#18 exporting layers 0.0s done
+#18 exporting manifest sha256:88d67dfe7cd46e12183d31f382f546f1445501a83ee8d89db24bb807ceba5fbc done
+#18 exporting config sha256:6bc977a77ef3be8864e23ebf8009eaa49debb804a385ac9d57d7a7620eb59817 done
+#18 exporting attestation manifest sha256:781141c77fd659af0879e5fb840e8717073576ff1b54f7653a9fb14f425360d8 done
+#18 exporting manifest list sha256:de38382627342be61d4795edd98fdcb04272984ba48e90f9fec535ffb5285b09 done
+#18 naming to docker.io/library/startup-team-design-complete:local done
+#18 unpacking to docker.io/library/startup-team-design-complete:local 0.0s done
+#18 DONE 0.1s
+
+#19 resolving provenance for metadata file
+#19 DONE 0.0s
+ Image startup-team-design-complete:local Built 
+ Container startup_team_design_complete-design-1 Recreate 
+ Container startup_team_design_complete-design-1 Recreated 
+ Container startup_team_design_complete-design-1 Starting 
+ Container startup_team_design_complete-design-1 Started 

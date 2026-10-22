@@ -1,6 +1,10 @@
 # Implementation and verification status — 2026-10-20
 
-Current implementation: v0.4.0, 64 API operations. See [completion report](COMPLETION_2026-10-20.md) for evidence and the exact limits of verification. Earlier baseline/remediation reports describe historical states and are preserved for traceability.
+Update 2026-10-21: review findings F1/F3/F4/F5 fixed in the working copy; **96 backend tests + 24 independent checks passed** on disposable PostgreSQL, with matching 67 API methods. Details: [review fixes](REVIEW_FIXES_2026-10-21.md). The original assignment text was supplied directly in the current user conversation.
+
+Update 2026-10-22: F2/F6 fixed in the separate design prototype; **47 prototype rule/render checks**, TypeScript and Vite/Docker build passed. Browser verified one submission per version/attempt and candidate access to complete historical conditions after reset/reapplication. Details: [stage two](DESIGN_STAGE2_2026-10-22.md). The prototype still uses localStorage and is not API-integrated; full domain parity is not claimed.
+
+Current implementation: v0.5.0, 67 API operations. Telegram auth implementation and current evidence: [setup/status](TELEGRAM_SETUP.md), including 67 backend checks plus 24 independent safety probes. Real BotFather/HTTPS deployment and Telegram iOS/Android checks remain pending. See the earlier [completion report](COMPLETION_2026-10-20.md) for domain behavior and historical evidence. The new full design remains a separate prototype; only real auth/onboarding screens use its visual system so far.
 
 ## Implemented
 
@@ -28,8 +32,8 @@ Current implementation: v0.4.0, 64 API operations. See [completion report](COMPL
 
 - Server page formation currently materializes authorized lists before slicing. SQL-side selection is a scale improvement; no hidden 100-record cutoff remains.
 - UI retry keys survive a network failure only within the current page lifetime. Direct clients must retain keys; after reload inspect results before issuing a fresh destructive command.
-- No external email/Telegram notification delivery, Telegram initData authorization, AI matching or ranking.
+- No external email/Telegram notification delivery, AI matching or ranking. Signed initData authorization is now implemented and tested offline; actual Telegram launch is not yet verified.
 - Demo authentication/default secrets are for loopback development. Public production deployment has not been tested.
 - No claim of testing every UI/role/state combination, real on-screen keyboards, screen readers or every possible race/stress condition.
 - Historical v0.1 schema variants beyond the observed/simulated compatible schemas have not been verified. Migration refuses detected contradictory relationships instead of deleting data.
-- Original assignment DOCX is still unavailable. Applicant must personally supply the AI-verification example and actual development time. Public GitHub link/permission to publish remain separate delivery steps; this folder has no .git metadata.
+- The original assignment text has now been supplied by the user. Applicant must personally supply the AI-verification example and actual development time. The GitHub repository is private by user request; local design/auth work is not committed/pushed yet. Public submission/access remains a separate delivery step.

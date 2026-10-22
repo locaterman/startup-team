@@ -1,5 +1,6 @@
 .git
 .env
+deploy/server.env
 backups/
 *.dump
 *.backup

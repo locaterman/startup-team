@@ -1,0 +1,21 @@
+{
+  "backend/app/main.py": "83d01f550a51a4b6cf56838ce45854430cc8b5fe4b08a591befd55ca1ef49a7c",
+  "backend/app/telegram_auth.py": "6d3ef04c37336b844be0f028062e908baf159cf6208b301a1c36e8fe0128e56e",
+  "backend/app/security.py": "6fdd441c0f64d5ec165434cb57c6f18e8f41cfaf094bd36449ba9af6ad8487b7",
+  "backend/app/seed.py": "0ed01c93030e35784f5fe005c3bc695f2c7ddca636e6d92efe4e1e20744e0bc3",
+  "backend/alembic/versions/0003_telegram_auth.py": "1ef9dd5daea2985e050396fe9c3882a275da1e57f3db46ad396dcde17ccfea3c",
+  "backend/tests/test_telegram_auth.py": "265ade8d4993e00ccac9854917ef6178dadb3c7029e187711941ebe3f40fa812",
+  "backend/tests/test_telegram_postgres.py": "f80193ea1b0f5919e536dbc74e6e4e6756325674896319893b83cd4c5c13910a",
+  "frontend/src/App.tsx": "17b4921f2cfd66acaa215f67023c91f355f4e9afa8c7d73ad3da066e206e3b7b",
+  "frontend/src/AuthScreen.tsx": "33e7730bb91f3b3562895afbf9aa75a4d99ddaf9d8932f3add2ae623603fa1ea",
+  "frontend/src/api.ts": "05970e1f6b713f6a9a69f5f96cf9d606c8db79ac460fedaf96c2babf86e22c49",
+  "frontend/src/telegram.ts": "d008214a0916b38f2c52fb6ab2e81f26175e36f5a8f88f62ddf3b93392fb3b4f",
+  "frontend/src/auth.css": "ba90b41d67eb7edd8c4a5f0fa85c1ab6c571b8c1bb4c1428463c1c77baba36dd",
+  "frontend/index.html": "621298321b7d35b9f2ca0ec6bd3c9d05bc691002415dbc82c6c1a26163bfb3d5",
+  "compose.yaml": "264ac94a1fca1f2c63ff0a0ec82c7ddd00ac142422da0e3f6f1032342400f52e",
+  "compose.production.yaml": "94820459266731b1a3f90edb2140efaab228923a567ddfbec46568ceb6681451",
+  "deploy/Caddyfile": "7345fd229951f1cfa645ac92f7da1c9f14cd4d9cc7d9a462da4342ff618d2222",
+  "deploy/server.env.example": "8899f834d06458dc7f899e0b7a767d6584b6eff96a514331e3aacf104ba3a577",
+  "contracts/openapi.yaml": "4ff3dea9570390a6ceac1cfa323834ef6aeeb82b6ca5d77bdd7d6b601688c84c",
+  "tools/generate_contract.py": "c6ac1d59bf9f65465a044405e2c7f28039e25c905b7b82ec8d5857996ce65852"
+}

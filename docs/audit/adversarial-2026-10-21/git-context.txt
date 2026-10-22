@@ -1,0 +1,4 @@
+29dd312841586f1392cb0e51573316c983088a53 Exclude local backups from Docker build context
+7290eb221bba014ec689964addd43344bb86bb10 Initial Startup Team MVP v0.4 implementation
+
+branch: main

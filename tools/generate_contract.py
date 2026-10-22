@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 import yaml
 
-O = {'openapi':'3.1.0', 'info':{'title':'Startup Team MVP API', 'version':'0.4.0', 'description':'Prototype contract for the selected 12-feature scope; see docs/IMPLEMENTATION_STATUS.md for verification limits.'},
+O = {'openapi':'3.1.0', 'info':{'title':'Startup Team MVP API', 'version':'0.5.0', 'description':'Prototype contract for the selected 12-feature scope; see docs/IMPLEMENTATION_STATUS.md for verification limits.'},
      'servers':[{'url':'/api/v1'}], 'tags':[{'name':x} for x in ['auth','users','startups','vacancies','applications','offers','team','recruiters','tests','notifications','history']],
      'components':{'securitySchemes':{'sessionCookie':{'type':'apiKey','in':'cookie','name':'session'}}, 'schemas':{}}, 'paths':{}}
 S=O['components']['schemas']
@@ -14,13 +14,16 @@ def ar(schema): return {'type':'array','items':schema}
 UUID=st(format='uuid'); TIME=st(format='date-time'); URL=st(format='uri'); BOOL={'type':'boolean'}; INT={'type':'integer'}
 S['Error']=obj({'error':obj({'code':st(),'message':st(),'details':{'type':'object','additionalProperties':True},'request_id':UUID},['code','message','details','request_id'])},['error'])
 S['User']=obj({'id':UUID,'name':st(),'bio':st(),'skills':ar(st()),'portfolio_url':{'anyOf':[URL,{'type':'null'}]}},['id','name','bio','skills'])
+S['TelegramLogin']=obj({'init_data':st(minLength=1,maxLength=16384)},['init_data'])
+S['AuthConfig']=obj({'telegram_enabled':BOOL,'demo_enabled':BOOL},['telegram_enabled','demo_enabled'])
+S['AuthContext']=obj({'onboarding_required':BOOL},['onboarding_required'])
 S['Login']=obj({'email':st(format='email'),'password':st(minLength=1)},['email','password'])
 S['UserUpdate']=obj({'name':st(minLength=1,maxLength=120),'bio':st(maxLength=5000),'skills':ar(st()),'portfolio_url':{'anyOf':[URL,{'type':'null'}]}})
 S['StartupCreate']=obj({'title':st(minLength=1,maxLength=180),'description':st(),'allow_general_applications':BOOL},['title','description'])
 S['StartupUpdate']=obj({'title':st(minLength=1,maxLength=180),'description':st(),'allow_general_applications':BOOL})
 S['Startup']=obj({'id':UUID,'owner_id':UUID,'title':st(),'description':st(),'status':st(enum=['active','paused','archived']),'allow_general_applications':BOOL,'revision':INT},['id','owner_id','title','description','status','allow_general_applications','revision'])
-S['VacancyCreate']=obj({'title':st(minLength=1,maxLength=180),'description':st(),'requirements':st(),'positions_count':{'type':'integer','minimum':1},'application_deadline':TIME},['title','description','requirements','positions_count','application_deadline'])
-S['VacancySettings']=obj({'positions_count':{'type':'integer','minimum':1},'application_deadline':TIME})
+S['VacancyCreate']=obj({'title':st(minLength=1,maxLength=180),'description':st(),'requirements':st(),'positions_count':{'type':'integer','minimum':1,'maximum':2147483647},'application_deadline':TIME},['title','description','requirements','positions_count','application_deadline'])
+S['VacancySettings']=obj({'positions_count':{'type':'integer','minimum':1,'maximum':2147483647},'application_deadline':TIME})
 S['VacancyChange']=obj({'title':st(minLength=1,maxLength=180),'description':st(),'requirements':st(),'change_mode':st(enum=['keep_applications','reset_applications']),'reason':st()},['title','description','requirements','change_mode'])
 S['Vacancy']=obj({'id':UUID,'startup_id':UUID,'title':st(),'description':st(),'requirements':st(),'positions_count':INT,'application_deadline':TIME,'status':st(enum=['published','intake_closed','archived']),'current_version':INT,'revision':INT},['id','startup_id','title','description','requirements','positions_count','application_deadline','status','current_version','revision'])
 S['VacancyVersion']=obj({'id':UUID,'vacancy_id':UUID,'version':INT,'title':st(),'description':st(),'requirements':st(),'change_mode':st(),'created_at':TIME},['id','vacancy_id','version','title','description','requirements','change_mode','created_at'])
@@ -68,6 +71,12 @@ def route(method, path, tag, summary, output=None, request=None, auth=True, stat
 
 # Authentication
 route('post','/auth/login','auth','Войти','User','Login',False)
+route('post','/auth/telegram','auth','Войти через проверенный Telegram initData','User','TelegramLogin',False)
+route('get','/auth/config','auth','Доступные способы входа','AuthConfig',auth=False)
+route('get','/auth/context','auth','Первое заполнение профиля','AuthContext')
+O['paths']['/auth/telegram']['post']['description']='Validate HMAC and auth_date, create or find a unique Telegram identity, and issue the existing HttpOnly session. Raw Telegram IDs are not accepted. Reusing launch data in another browser returns 409; an existing bound live session may refresh without creating another session. First profile save with an explicit name completes onboarding.'
+O['paths']['/auth/telegram']['post']['responses']['503']={'description':'Telegram bot token is not configured','content':{'application/json':{'schema':rf('Error')}}}
+O['paths']['/auth/telegram']['post']['responses']['415']={'description':'JSON required','content':{'application/json':{'schema':rf('Error')}}}
 route('post','/auth/logout','auth','Выйти',None,None,True,'204')
 route('get','/auth/me','auth','Текущий пользователь','User')
 route('get','/auth/csrf','auth','CSRF токен','Csrf')
@@ -174,6 +183,10 @@ for param in O['paths']['/startups']['get']['parameters']:
  if param['name']=='scope':param['schema']['enum'].append('member')
 for path,methods in O['paths'].items():
  for method,operation in methods.items():
+  if method in ('post','patch','delete') and path not in ('/auth/login','/auth/telegram','/auth/logout','/users/me'):
+   operation['description']=operation.get('description','')+' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403 ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
+  if method=='get' and path in ('/recruiter-invitations/mine','/startups/{startup_id}/recruiter-invitations'):
+   operation['description']=operation.get('description','')+' Pending invitations whose expires_at has passed are returned as expired using database time, independent of owner reads or rejected accept commands.'
   if method=='get' and any(p.get('name')=='cursor' for p in operation.get('parameters',[])):
    operation['description']=operation.get('description','')+' Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20). Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.'
   if method in ('post','patch','delete') and any(x in path for x in ('{startup_id}','{vacancy_id}','{application_id}','{offer_id}')):

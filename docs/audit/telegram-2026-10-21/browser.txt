@@ -1,0 +1,4 @@
+Isolated tmpfs DB only; mock SDK with offline test signature.
+Profile saved through UI; reload skipped onboarding; new account created project.
+Counts: Telegram users=1; startups=1; launch exchanges=1; active Telegram sessions=1; completed onboarding=1.
+Observed JS logs empty. Main DB not used.

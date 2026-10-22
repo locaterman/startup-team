@@ -1,5 +1,5 @@
 """Startup Team domain API; command receipts and all domain effects share a transaction."""
-import secrets, uuid
+import secrets, uuid, os
 from datetime import datetime, timezone
 from typing import Literal
 from fastapi import FastAPI, Depends, HTTPException, Request
@@ -12,9 +12,10 @@ from sqlalchemy.engine import Connection
 from .database import db
 from .commands import command
 from .pagination import paged
-from .security import auth, verify_password, digest, csrf, COOKIE_SECURE, lock_startup, can_manage, owner_only
+from .security import auth, domain_auth, verify_password, digest, csrf, COOKIE_SECURE, lock_startup, can_manage, owner_only
+from .telegram_auth import bot_token, demo_login_enabled, validate_init_data
 
-app=FastAPI(title='Startup Team API',version='0.4.0')
+app=FastAPI(title='Startup Team API',version='0.5.0')
 
 def record(r):return jsonable_encoder(dict(r)) if r else None
 def items(rows):return {'items':[record(r) for r in rows], 'next_cursor':None}
@@ -136,9 +137,11 @@ class PatchModel(RequestModel):
         return values
 
 class Login(RequestModel):email:str=Field(min_length=3,max_length=254,pattern=r'^[^@\s]+@[^@\s]+\.[^@\s]+$');password:str=Field(min_length=1)
+class TelegramLogin(RequestModel):init_data:str=Field(min_length=1,max_length=16384)
 class StartupCreate(RequestModel):title:str=Field(min_length=1,max_length=180);description:str='';allow_general_applications:bool=True
 class StartupUpdate(PatchModel):title:str|None=Field(default=None,min_length=1,max_length=180);description:str|None=None;allow_general_applications:bool|None=None
-class VacancyCreate(RequestModel):title:str=Field(min_length=1,max_length=180);description:str='';requirements:str='';positions_count:int=Field(ge=1);application_deadline:datetime
+MAX_POSITIONS = 2147483647  # PostgreSQL INTEGER upper bound; shared by create/settings.
+class VacancyCreate(RequestModel):title:str=Field(min_length=1,max_length=180);description:str='';requirements:str='';positions_count:int=Field(ge=1,le=MAX_POSITIONS,strict=True);application_deadline:datetime
 class AttemptCreate(RequestModel):message:str=Field('',max_length=5000)
 class ApplicationCreate(RequestModel):target_type:Literal['startup','vacancy'];target_id:uuid.UUID;message:str=Field('',max_length=5000)
 class RejectBody(RequestModel):reason:str=Field('',max_length=2000)
@@ -149,15 +152,59 @@ class UserUpdate(PatchModel):name:str|None=Field(default=None,min_length=1,max_l
 def health():return {'status':'ok'}
 
 @app.post('/api/v1/auth/login')
-def login(body:Login,conn:Connection=Depends(db)):
+def login(body:Login,request:Request,conn:Connection=Depends(db)):
+    guard(demo_login_enabled(),'DEMO_LOGIN_DISABLED',403)
     u=run(conn,'SELECT * FROM users WHERE email=:email',email=str(body.email).lower()).mappings().first()
     if not u or not verify_password(body.password,u['password_hash']):err('INVALID_CREDENTIALS',401)
+    return issue_session(conn,u,request)[0]
+
+def issue_session(conn,user,request):
+    old=request.cookies.get('session')
+    if old:run(conn,'UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_digest=:d AND revoked_at IS NULL',d=digest(old))
     token=secrets.token_urlsafe(32)
     run(conn,'''INSERT INTO sessions(user_id,token_digest,csrf_digest,expires_at)
-         VALUES(:uid,:digest,:csrf,clock_timestamp()+interval '7 days')''',uid=u['id'],digest=digest(token),csrf=digest(csrf(token)))
-    res=JSONResponse(record({k:u[k] for k in ['id','name','bio','skills','portfolio_url']}))
+         VALUES(:uid,:digest,:csrf,clock_timestamp()+interval '7 days')''',uid=user['id'],digest=digest(token),csrf=digest(csrf(token)))
+    res=JSONResponse(record({k:user[k] for k in ['id','name','bio','skills','portfolio_url']}),headers={'Cache-Control':'no-store'})
     res.set_cookie('session',token,httponly=True,secure=COOKIE_SECURE,samesite='lax',max_age=7*86400,path='/')
-    return res
+    return res,digest(token)
+
+@app.get('/api/v1/auth/config')
+def auth_config():
+    return JSONResponse({'telegram_enabled':bool(bot_token()),'demo_enabled':demo_login_enabled()},headers={'Cache-Control':'no-store'})
+
+@app.get('/api/v1/auth/context')
+def auth_context(user=Depends(auth)):
+    return JSONResponse({'onboarding_required':user['telegram_id'] is not None and user['onboarding_completed_at'] is None},headers={'Cache-Control':'no-store'})
+
+@app.post('/api/v1/auth/telegram')
+def telegram_login(body:TelegramLogin,request:Request,conn:Connection=Depends(db)):
+    guard(request.headers.get('sec-fetch-site')!='cross-site','CROSS_SITE_LOGIN',403)
+    guard(request.headers.get('content-type','').split(';')[0].strip()=='application/json','JSON_REQUIRED',415)
+    # Old launch data can only restore its already-bound live browser session below.
+    identity=validate_init_data(body.init_data,bot_token(),max_age=int(os.getenv('TELEGRAM_AUTH_MAX_AGE_SECONDS','300')),allow_expired=True)
+    # Serialize consumption before creating an identity/session. No launch credential is persisted.
+    run(conn,'SELECT pg_advisory_xact_lock(hashtext(:key))',key='telegram:'+identity.credential_digest)
+    previous=run(conn,'''SELECT e.user_id,e.session_digest,s.revoked_at,s.expires_at
+        FROM telegram_auth_exchanges e JOIN sessions s ON s.token_digest=e.session_digest
+        WHERE e.init_data_digest=:key''',key=identity.credential_digest).mappings().first()
+    if previous:
+        raw=request.cookies.get('session')
+        guard(raw and secrets.compare_digest(digest(raw),previous['session_digest'])
+              and previous['revoked_at'] is None and previous['expires_at']>ts(conn),'TELEGRAM_AUTH_REPLAY',409)
+        user=run(conn,'SELECT id,name,bio,skills,portfolio_url FROM users WHERE id=:id',id=previous['user_id']).mappings().one()
+        return JSONResponse(record(user),headers={'Cache-Control':'no-store'})
+    guard(identity.expires_at>=ts(conn).timestamp(),'TELEGRAM_AUTH_EXPIRED',401)
+    # Never link accounts by name, username or client-provided email.
+    run(conn,'''INSERT INTO users(telegram_id,name,email,password_hash,onboarding_completed_at)
+        VALUES(:tg,:name,NULL,NULL,NULL) ON CONFLICT (telegram_id) DO NOTHING''',tg=identity.telegram_id,name=identity.name)
+    user=run(conn,'SELECT id,name,bio,skills,portfolio_url FROM users WHERE telegram_id=:tg',tg=identity.telegram_id).mappings().one()
+    response,session_digest=issue_session(conn,user,request)
+    run(conn,'''DELETE FROM telegram_auth_exchanges e WHERE e.expires_at<clock_timestamp()
+        AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.token_digest=e.session_digest
+            AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp())''')
+    run(conn,'''INSERT INTO telegram_auth_exchanges(init_data_digest,user_id,session_digest,expires_at)
+        VALUES(:key,:user,:session,to_timestamp(:expiry))''',key=identity.credential_digest,user=user['id'],session=session_digest,expiry=identity.expires_at)
+    return response
 
 @app.post('/api/v1/auth/logout',status_code=204)
 def logout(request:Request,conn:Connection=Depends(db),me=Depends(auth)):
@@ -193,6 +240,8 @@ def update_me(body:UserUpdate,conn:Connection=Depends(db),me=Depends(auth)):
         if field=='skills':
             run(conn,'UPDATE users SET skills=CAST(:v AS jsonb),revision=revision+1 WHERE id=:id',v=__import__('json').dumps(value),id=me['id'])
         else:run(conn,f'UPDATE users SET {field}=:v,revision=revision+1 WHERE id=:id',v=value,id=me['id'])
+    if 'name' in updates:
+        run(conn,'UPDATE users SET onboarding_completed_at=COALESCE(onboarding_completed_at,clock_timestamp()) WHERE id=:id',id=me['id'])
     return public_user(me['id'],conn,me)
 
 @app.get('/api/v1/startups')
@@ -203,7 +252,7 @@ def list_startups(scope:Literal['public','managed','member']='public',conn:Conne
     return items(run(conn,f"SELECT s.id,s.owner_id,s.title,s.description,s.status,s.allow_general_applications,s.revision FROM startups s WHERE {condition} ORDER BY s.created_at DESC,s.id DESC",u=me['id']).mappings().all())
 @app.post('/api/v1/startups',status_code=201)
 @command(201)
-def create_startup(body:StartupCreate,conn:Connection=Depends(db),me=Depends(auth)):
+def create_startup(body:StartupCreate,conn:Connection=Depends(db),me=Depends(domain_auth)):
     r=run(conn,'''INSERT INTO startups (owner_id,title,description,allow_general_applications)
           VALUES(:owner,:title,:description,:allow) RETURNING *''',owner=me['id'],title=body.title,description=body.description,allow=body.allow_general_applications).mappings().one()
     evt(conn,r['id'],me['id'],'startup',r['id'],'startup.created')
@@ -215,7 +264,7 @@ def get_startup(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth
     return record(r)
 @app.patch('/api/v1/startups/{startup_id}')
 @command(200)
-def update_startup(startup_id:uuid.UUID,body:StartupUpdate,conn:Connection=Depends(db),me=Depends(auth)):
+def update_startup(startup_id:uuid.UUID,body:StartupUpdate,conn:Connection=Depends(db),me=Depends(domain_auth)):
     s=lock_startup(conn,startup_id);owner_only(s,me['id']);guard(s['status']!='archived','STARTUP_ARCHIVED')
     for k,v in body.model_dump(exclude_unset=True).items():
         if k=='title':guard(bool(v and v.strip()),'INVALID_TITLE',422)
@@ -231,6 +280,7 @@ def change_startup(startup_id,action,conn,me):
     target=allowed[action][1]
     if action=='archive':
         expire_offers(conn,startup_id)
+        expire_recruiter_invitations(conn,startup_id)
         run(conn,"UPDATE offers SET status='revoked',decided_at=clock_timestamp(),revision=revision+1 WHERE startup_id=:s AND status='pending'",s=startup_id)
         run(conn,"UPDATE vacancies SET status='archived',archived_at=clock_timestamp(),revision=revision+1 WHERE startup_id=:s AND status!='archived'",s=startup_id)
         run(conn,"UPDATE recruiter_invitations SET status='revoked',decided_at=clock_timestamp() WHERE startup_id=:s AND status='pending'",s=startup_id)
@@ -240,13 +290,13 @@ def change_startup(startup_id,action,conn,me):
     return get_startup(startup_id,conn,me)
 @app.post('/api/v1/startups/{startup_id}/pause')
 @command(200)
-def pause(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):return change_startup(startup_id,'pause',conn,me)
+def pause(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):return change_startup(startup_id,'pause',conn,me)
 @app.post('/api/v1/startups/{startup_id}/resume')
 @command(200)
-def resume(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):return change_startup(startup_id,'resume',conn,me)
+def resume(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):return change_startup(startup_id,'resume',conn,me)
 @app.post('/api/v1/startups/{startup_id}/archive')
 @command(200)
-def archive(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):return change_startup(startup_id,'archive',conn,me)
+def archive(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):return change_startup(startup_id,'archive',conn,me)
 
 @app.get('/api/v1/vacancies')
 @paged
@@ -275,7 +325,7 @@ def get_vacancy(vacancy_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth
     return record(r)
 @app.post('/api/v1/startups/{startup_id}/vacancies',status_code=201)
 @command(201)
-def create_vacancy(startup_id:uuid.UUID,body:VacancyCreate,conn:Connection=Depends(db),me=Depends(auth)):
+def create_vacancy(startup_id:uuid.UUID,body:VacancyCreate,conn:Connection=Depends(db),me=Depends(domain_auth)):
     s=lock_startup(conn,startup_id)
     guard(can_manage(conn,s,me['id']),'PERMISSION_DENIED',403)
     guard(s['status']=='active','STARTUP_INACTIVE')
@@ -289,7 +339,7 @@ def create_vacancy(startup_id:uuid.UUID,body:VacancyCreate,conn:Connection=Depen
 
 @app.post('/api/v1/applications',status_code=201)
 @command(201)
-def apply(body:ApplicationCreate,conn:Connection=Depends(db),me=Depends(auth)):
+def apply(body:ApplicationCreate,conn:Connection=Depends(db),me=Depends(domain_auth)):
     if body.target_type=='vacancy':
         v=run(conn,'SELECT startup_id FROM vacancies WHERE id=:v',v=body.target_id).mappings().first()
         if not v:err('VACANCY_NOT_FOUND',404)
@@ -359,6 +409,15 @@ def act_on_app(application_id,action,conn,me,reason=''):
                 v=run(conn,'SELECT status,application_deadline FROM vacancies WHERE id=:v',v=r['vacancy_id']).mappings().one()
                 guard(v['status']=='published' and v['application_deadline']>ts(conn),'APPLICATIONS_CLOSED')
             else:guard(s['allow_general_applications'],'GENERAL_APPLICATIONS_DISABLED')
+            # Withdrawn is reversible: reconcile any critical changes made while absent.
+            # Keep reviewed_by/reviewed_at and historical attempts unchanged.
+            run(conn,'''UPDATE test_submissions sub SET status='superseded'
+                FROM test_assignment_versions submitted
+                WHERE sub.attempt_id=:attempt AND sub.test_version_id=submitted.id
+                AND sub.status IN ('submitted','reviewed') AND EXISTS (
+                    SELECT 1 FROM test_assignment_versions newer
+                    WHERE newer.vacancy_id=submitted.vacancy_id AND newer.version>submitted.version
+                    AND newer.change_type='critical')''',attempt=r['attempt_id'])
             target='pending'
     run(conn,'UPDATE application_attempts SET status=:status,revision=revision+1,updated_at=clock_timestamp() WHERE id=:id',status=target,id=r['attempt_id'])
     if action=='reject':
@@ -367,16 +426,16 @@ def act_on_app(application_id,action,conn,me,reason=''):
     return serialize_application(application_row(conn,application_id))
 @app.post('/api/v1/applications/{application_id}/review')
 @command(200)
-def review(application_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):return act_on_app(application_id,'review',conn,me)
+def review(application_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):return act_on_app(application_id,'review',conn,me)
 @app.post('/api/v1/applications/{application_id}/reject')
 @command(200)
-def reject(application_id:uuid.UUID,body:RejectBody,conn:Connection=Depends(db),me=Depends(auth)):return act_on_app(application_id,'reject',conn,me,body.reason)
+def reject(application_id:uuid.UUID,body:RejectBody,conn:Connection=Depends(db),me=Depends(domain_auth)):return act_on_app(application_id,'reject',conn,me,body.reason)
 @app.post('/api/v1/applications/{application_id}/withdraw')
 @command(200)
-def withdraw(application_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):return act_on_app(application_id,'withdraw',conn,me)
+def withdraw(application_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):return act_on_app(application_id,'withdraw',conn,me)
 @app.post('/api/v1/applications/{application_id}/restore')
 @command(200)
-def restore(application_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):return act_on_app(application_id,'restore',conn,me)
+def restore(application_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):return act_on_app(application_id,'restore',conn,me)
 
 # --- Invitation / team workflows (startup row is the concurrency gate) ---
 
@@ -398,7 +457,7 @@ def vacancy_capacity(vacancy_id:uuid.UUID,conn:Connection=Depends(db),me=Depends
 
 @app.post('/api/v1/applications/{application_id}/offers',status_code=201)
 @command(201)
-def create_offer(application_id:uuid.UUID,body:OfferCreate,conn:Connection=Depends(db),me=Depends(auth)):
+def create_offer(application_id:uuid.UUID,body:OfferCreate,conn:Connection=Depends(db),me=Depends(domain_auth)):
     r=application_row(conn,application_id)
     if not r:err('APPLICATION_NOT_FOUND',404)
     s=lock_startup(conn,r['startup_id']);expire_offers(conn,s['id'])
@@ -497,13 +556,13 @@ def decide_offer(offer_id, action, conn, me):
     return get_offer(offer_id,conn,me)
 @app.post('/api/v1/offers/{offer_id}/accept')
 @command(200)
-def accept_offer(offer_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):return decide_offer(offer_id,'accept',conn,me)
+def accept_offer(offer_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):return decide_offer(offer_id,'accept',conn,me)
 @app.post('/api/v1/offers/{offer_id}/decline')
 @command(200)
-def decline_offer(offer_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):return decide_offer(offer_id,'decline',conn,me)
+def decline_offer(offer_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):return decide_offer(offer_id,'decline',conn,me)
 @app.post('/api/v1/offers/{offer_id}/revoke')
 @command(200)
-def revoke_offer(offer_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):return decide_offer(offer_id,'revoke',conn,me)
+def revoke_offer(offer_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):return decide_offer(offer_id,'revoke',conn,me)
 
 @app.get('/api/v1/startups/{startup_id}/members')
 @paged
@@ -515,7 +574,7 @@ def members(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):
     return items(rows)
 @app.post('/api/v1/startups/{startup_id}/members/leave',status_code=204)
 @command(204)
-def leave_team(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):
+def leave_team(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):
     s=lock_startup(conn,startup_id)
     affected=run(conn,"UPDATE startup_members SET left_at=clock_timestamp(),left_reason='left' WHERE startup_id=:s AND user_id=:u AND left_at IS NULL RETURNING id",s=startup_id,u=me['id']).scalar()
     guard(affected is not None,'NOT_TEAM_MEMBER')
@@ -523,7 +582,7 @@ def leave_team(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)
     return None
 @app.delete('/api/v1/startups/{startup_id}/members/{user_id}',status_code=204)
 @command(204)
-def remove_team_member(startup_id:uuid.UUID,user_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):
+def remove_team_member(startup_id:uuid.UUID,user_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):
     s=lock_startup(conn,startup_id);owner_only(s,me['id'])
     affected=run(conn,"UPDATE startup_members SET left_at=clock_timestamp(),left_reason='removed' WHERE startup_id=:s AND user_id=:u AND left_at IS NULL RETURNING id",s=startup_id,u=user_id).scalar()
     guard(affected is not None,'NOT_TEAM_MEMBER')
@@ -538,7 +597,7 @@ class VacancyChange(RequestModel):
     change_mode:Literal['keep_applications','reset_applications']
     reason:str=''
 class VacancySettings(PatchModel):
-    positions_count:int|None=Field(default=None,ge=1)
+    positions_count:int|None=Field(default=None,ge=1,le=MAX_POSITIONS,strict=True)
     application_deadline:datetime|None=None
 
 @app.get('/api/v1/vacancies/{vacancy_id}/versions')
@@ -548,7 +607,7 @@ def versions(vacancy_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):
     return items(rows)
 @app.post('/api/v1/vacancies/{vacancy_id}/versions',status_code=201)
 @command(201)
-def new_version(vacancy_id:uuid.UUID,body:VacancyChange,conn:Connection=Depends(db),me=Depends(auth)):
+def new_version(vacancy_id:uuid.UUID,body:VacancyChange,conn:Connection=Depends(db),me=Depends(domain_auth)):
     v=run(conn,'SELECT startup_id FROM vacancies WHERE id=:v',v=vacancy_id).mappings().first()
     if not v:err('VACANCY_NOT_FOUND',404)
     s=lock_startup(conn,v['startup_id'])
@@ -572,7 +631,7 @@ def new_version(vacancy_id:uuid.UUID,body:VacancyChange,conn:Connection=Depends(
 
 @app.post('/api/v1/applications/{application_id}/attempts',status_code=201)
 @command(201)
-def resubmit(application_id:uuid.UUID,body:AttemptCreate,conn:Connection=Depends(db),me=Depends(auth)):
+def resubmit(application_id:uuid.UUID,body:AttemptCreate,conn:Connection=Depends(db),me=Depends(domain_auth)):
     a=run(conn,'SELECT id,startup_id,applicant_id,vacancy_id FROM applications WHERE id=:id',id=application_id).mappings().first()
     if not a:err('APPLICATION_NOT_FOUND',404)
     s=lock_startup(conn,a['startup_id'])
@@ -602,7 +661,7 @@ def resubmit(application_id:uuid.UUID,body:AttemptCreate,conn:Connection=Depends
 @app.post('/api/v1/vacancies/{vacancy_id}/reopen-intake')
 @app.post('/api/v1/vacancies/{vacancy_id}/archive')
 @command(200)
-def vacancy_state(vacancy_id:uuid.UUID,request:Request,conn:Connection=Depends(db),me=Depends(auth)):
+def vacancy_state(vacancy_id:uuid.UUID,request:Request,conn:Connection=Depends(db),me=Depends(domain_auth)):
     r=run(conn,'SELECT startup_id FROM vacancies WHERE id=:v',v=vacancy_id).mappings().first()
     if not r:err('VACANCY_NOT_FOUND',404)
     s=lock_startup(conn,r['startup_id'])
@@ -625,7 +684,7 @@ def vacancy_state(vacancy_id:uuid.UUID,request:Request,conn:Connection=Depends(d
 
 @app.patch('/api/v1/vacancies/{vacancy_id}/settings')
 @command(200)
-def vacancy_settings(vacancy_id:uuid.UUID,body:VacancySettings,conn:Connection=Depends(db),me=Depends(auth)):
+def vacancy_settings(vacancy_id:uuid.UUID,body:VacancySettings,conn:Connection=Depends(db),me=Depends(domain_auth)):
     v=run(conn,'SELECT startup_id FROM vacancies WHERE id=:v',v=vacancy_id).mappings().first()
     if not v:err('VACANCY_NOT_FOUND',404)
     s=lock_startup(conn,v['startup_id']);expire_offers(conn,s['id'])
@@ -642,15 +701,23 @@ def vacancy_settings(vacancy_id:uuid.UUID,body:VacancySettings,conn:Connection=D
     return get_vacancy(vacancy_id,conn,me)
 
 # --- External recruiters ---
+RECRUITER_INVITATION_SELECT = '''SELECT id,startup_id,user_id,
+    CASE WHEN status='pending' AND expires_at<=clock_timestamp() THEN 'expired'
+         ELSE status END AS status,expires_at FROM recruiter_invitations'''
+
+def expire_recruiter_invitations(conn,startup_id):
+    # Caller holds the startup lock. Reads also project expiry without requiring a write.
+    run(conn,"UPDATE recruiter_invitations SET status='expired',decided_at=clock_timestamp() WHERE startup_id=:s AND status='pending' AND expires_at<=clock_timestamp()",s=startup_id)
+
 class RecruiterInvite(RequestModel):user_id:uuid.UUID;expires_at:datetime
 @app.post('/api/v1/startups/{startup_id}/recruiter-invitations',status_code=201)
 @command(201)
-def invite_recruiter(startup_id:uuid.UUID,body:RecruiterInvite,conn:Connection=Depends(db),me=Depends(auth)):
+def invite_recruiter(startup_id:uuid.UUID,body:RecruiterInvite,conn:Connection=Depends(db),me=Depends(domain_auth)):
     s=lock_startup(conn,startup_id);owner_only(s,me['id']);guard(s['status']=='active','STARTUP_INACTIVE')
     guard(str(body.user_id)!=str(me['id']),'OWNER_ALREADY_MANAGES')
     guard(body.expires_at.tzinfo is not None and body.expires_at>ts(conn),'INVALID_EXPIRY',422)
     guard(run(conn,'SELECT 1 FROM users WHERE id=:u',u=body.user_id).scalar(),'USER_NOT_FOUND',404)
-    run(conn,"UPDATE recruiter_invitations SET status='expired',decided_at=clock_timestamp() WHERE startup_id=:s AND status='pending' AND expires_at<=clock_timestamp()",s=startup_id)
+    expire_recruiter_invitations(conn,startup_id)
     guard(not run(conn,'SELECT 1 FROM recruiter_grants WHERE startup_id=:s AND user_id=:u AND revoked_at IS NULL',s=startup_id,u=body.user_id).scalar(),'ALREADY_RECRUITER')
     guard(not run(conn,"SELECT 1 FROM recruiter_invitations WHERE startup_id=:s AND user_id=:u AND status='pending'",s=startup_id,u=body.user_id).scalar(),'INVITATION_EXISTS')
     row=run(conn,'''INSERT INTO recruiter_invitations(startup_id,user_id,sent_by,expires_at) VALUES(:s,:u,:by,:exp)
@@ -660,11 +727,11 @@ def invite_recruiter(startup_id:uuid.UUID,body:RecruiterInvite,conn:Connection=D
 @app.get('/api/v1/recruiter-invitations/mine')
 @paged
 def own_recruiter_invitations(conn:Connection=Depends(db),me=Depends(auth)):
-    return items(run(conn,'SELECT id,startup_id,user_id,status,expires_at FROM recruiter_invitations WHERE user_id=:u ORDER BY created_at DESC',u=me['id']).mappings().all())
+    return items(run(conn,RECRUITER_INVITATION_SELECT+' WHERE user_id=:u ORDER BY created_at DESC',u=me['id']).mappings().all())
 @app.post('/api/v1/recruiter-invitations/{invitation_id}/accept')
 @app.post('/api/v1/recruiter-invitations/{invitation_id}/decline')
 @command(200)
-def respond_recruiter(invitation_id:uuid.UUID,request:Request,conn:Connection=Depends(db),me=Depends(auth)):
+def respond_recruiter(invitation_id:uuid.UUID,request:Request,conn:Connection=Depends(db),me=Depends(domain_auth)):
     inv=run(conn,'SELECT startup_id FROM recruiter_invitations WHERE id=:i',i=invitation_id).mappings().first()
     if not inv:err('INVITATION_NOT_FOUND',404)
     s=lock_startup(conn,inv['startup_id'])
@@ -683,13 +750,13 @@ def respond_recruiter(invitation_id:uuid.UUID,request:Request,conn:Connection=De
     return record(run(conn,'SELECT id,startup_id,user_id,status,expires_at FROM recruiter_invitations WHERE id=:i',i=invitation_id).mappings().one())
 @app.post('/api/v1/recruiter-invitations/{invitation_id}/revoke')
 @command(200)
-def revoke_recruiter_invitation(invitation_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):
+def revoke_recruiter_invitation(invitation_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):
     row=run(conn,'SELECT startup_id FROM recruiter_invitations WHERE id=:i',i=invitation_id).mappings().first()
     if not row:err('INVITATION_NOT_FOUND',404)
     s=lock_startup(conn,row['startup_id']);owner_only(s,me['id'])
     updated=run(conn,"""UPDATE recruiter_invitations
        SET status='revoked',decided_at=clock_timestamp()
-       WHERE id=:i AND status='pending'
+       WHERE id=:i AND status='pending' AND expires_at>clock_timestamp()
        RETURNING id,startup_id,user_id,status,expires_at""",i=invitation_id).mappings().first()
     guard(updated is not None,'INVALID_STATE_TRANSITION')
     evt(conn,s['id'],me['id'],'recruiter_invitation',invitation_id,'recruiter.revoke')
@@ -702,7 +769,7 @@ def recruiters(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)
     return items(run(conn,'SELECT id,startup_id,user_id,granted_at FROM recruiter_grants WHERE startup_id=:s AND revoked_at IS NULL',s=startup_id).mappings().all())
 @app.delete('/api/v1/startups/{startup_id}/recruiters/{user_id}',status_code=204)
 @command(204)
-def remove_recruiter(startup_id:uuid.UUID,user_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):
+def remove_recruiter(startup_id:uuid.UUID,user_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):
     s=lock_startup(conn,startup_id);owner_only(s,me['id'])
     r=run(conn,'UPDATE recruiter_grants SET revoked_at=clock_timestamp() WHERE startup_id=:s AND user_id=:u AND revoked_at IS NULL RETURNING id',s=startup_id,u=user_id).scalar()
     guard(r is not None,'RECRUITER_NOT_FOUND',404)
@@ -736,7 +803,7 @@ def list_test_versions(vacancy_id:uuid.UUID,conn:Connection=Depends(db),me=Depen
     return items([test_payload(t) for t in run(conn,'SELECT * FROM test_assignment_versions WHERE vacancy_id=:v ORDER BY version DESC',v=vacancy_id).mappings().all()])
 @app.post('/api/v1/vacancies/{vacancy_id}/tests/versions',status_code=201)
 @command(201)
-def create_test_version(vacancy_id:uuid.UUID,body:TestVersionCreate,conn:Connection=Depends(db),me=Depends(auth)):
+def create_test_version(vacancy_id:uuid.UUID,body:TestVersionCreate,conn:Connection=Depends(db),me=Depends(domain_auth)):
     r=run(conn,'SELECT startup_id FROM vacancies WHERE id=:v',v=vacancy_id).mappings().first()
     if not r:err('VACANCY_NOT_FOUND',404)
     s=lock_startup(conn,r['startup_id'])
@@ -772,7 +839,7 @@ def list_submissions(application_id:uuid.UUID,conn:Connection=Depends(db),me=Dep
     return items(rows)
 @app.post('/api/v1/applications/{application_id}/test-submissions',status_code=201)
 @command(201)
-def submit_test(application_id:uuid.UUID,body:SubmissionCreate,conn:Connection=Depends(db),me=Depends(auth)):
+def submit_test(application_id:uuid.UUID,body:SubmissionCreate,conn:Connection=Depends(db),me=Depends(domain_auth)):
     a=run(conn,'SELECT * FROM applications WHERE id=:a',a=application_id).mappings().first()
     if not a:err('APPLICATION_NOT_FOUND',404)
     s=lock_startup(conn,a['startup_id'])
@@ -794,7 +861,7 @@ def submit_test(application_id:uuid.UUID,body:SubmissionCreate,conn:Connection=D
     return record(row)
 @app.patch('/api/v1/test-submissions/{submission_id}')
 @command(200)
-def review_test(submission_id:uuid.UUID,body:SubmissionReview,conn:Connection=Depends(db),me=Depends(auth)):
+def review_test(submission_id:uuid.UUID,body:SubmissionReview,conn:Connection=Depends(db),me=Depends(domain_auth)):
     r=run(conn,'''SELECT t.id,t.attempt_id,a.startup_id,a.applicant_id
       FROM test_submissions t JOIN application_attempts at ON at.id=t.attempt_id
       JOIN applications a ON a.id=at.application_id WHERE t.id=:id''',id=submission_id).mappings().first()
@@ -838,8 +905,8 @@ def startup_offers(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(a
 @paged
 def startup_recruiter_invitations(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):
     s=lock_startup(conn,startup_id);owner_only(s,me['id'])
-    run(conn,"UPDATE recruiter_invitations SET status='expired',decided_at=clock_timestamp() WHERE startup_id=:s AND status='pending' AND expires_at<=clock_timestamp()",s=startup_id)
-    return items(run(conn,'SELECT id,startup_id,user_id,status,expires_at FROM recruiter_invitations WHERE startup_id=:s',s=startup_id).mappings().all())
+    expire_recruiter_invitations(conn,startup_id)
+    return items(run(conn,RECRUITER_INVITATION_SELECT+' WHERE startup_id=:s',s=startup_id).mappings().all())
 
 @app.get('/api/v1/startups/{startup_id}/events')
 @paged
@@ -852,13 +919,13 @@ def notifications(conn:Connection=Depends(db),me=Depends(auth)):
     return items(run(conn,'SELECT id,title,message,read_at,created_at FROM notifications WHERE recipient_id=:u ORDER BY created_at DESC',u=me['id']).mappings().all())
 @app.patch('/api/v1/notifications/{notification_id}/read')
 @command(200)
-def read_notification(notification_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):
+def read_notification(notification_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):
     r=run(conn,'UPDATE notifications SET read_at=COALESCE(read_at,clock_timestamp()) WHERE id=:id AND recipient_id=:u RETURNING id,title,message,read_at,created_at',id=notification_id,u=me['id']).mappings().first()
     if not r:err('NOTIFICATION_NOT_FOUND',404)
     return record(r)
 @app.delete('/api/v1/startups/{startup_id}',status_code=204)
 @command(204)
-def delete_empty_startup(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(auth)):
+def delete_empty_startup(startup_id:uuid.UUID,conn:Connection=Depends(db),me=Depends(domain_auth)):
     s=lock_startup(conn,startup_id);owner_only(s,me['id'])
     for table in ['applications','offers','startup_members','recruiter_invitations','recruiter_grants']:
         guard(not run(conn,f'SELECT 1 FROM {table} WHERE startup_id=:s LIMIT 1',s=startup_id).scalar(),'HISTORY_PREVENTS_DELETE')

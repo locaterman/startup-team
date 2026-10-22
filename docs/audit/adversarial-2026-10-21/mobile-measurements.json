@@ -1,0 +1,86 @@
+[
+  {
+    "title": "catalog-320",
+    "width": 320,
+    "scroll": 320,
+    "body": 320
+  },
+  {
+    "title": "catalog-390",
+    "width": 390,
+    "scroll": 390,
+    "body": 390
+  },
+  {
+    "title": "vacancies-320",
+    "width": 320,
+    "scroll": 320,
+    "body": 320
+  },
+  {
+    "title": "vacancies-390",
+    "width": 390,
+    "scroll": 390,
+    "body": 390
+  },
+  {
+    "title": "applications-320",
+    "width": 320,
+    "scroll": 320,
+    "body": 320
+  },
+  {
+    "title": "applications-390",
+    "width": 390,
+    "scroll": 390,
+    "body": 390
+  },
+  {
+    "title": "cabinet-320",
+    "width": 320,
+    "scroll": 320,
+    "body": 320
+  },
+  {
+    "title": "cabinet-390",
+    "width": 390,
+    "scroll": 390,
+    "body": 390
+  },
+  {
+    "title": "profile-320",
+    "width": 320,
+    "scroll": 320,
+    "body": 320
+  },
+  {
+    "title": "profile-390",
+    "width": 390,
+    "scroll": 390,
+    "body": 390
+  },
+  {
+    "title": "notifications-320",
+    "width": 320,
+    "scroll": 320,
+    "body": 320
+  },
+  {
+    "title": "notifications-390",
+    "width": 390,
+    "scroll": 390,
+    "body": 390
+  },
+  {
+    "title": "teams-320",
+    "width": 320,
+    "scroll": 320,
+    "body": 320
+  },
+  {
+    "title": "teams-390",
+    "width": 390,
+    "scroll": 390,
+    "body": 390
+  }
+]

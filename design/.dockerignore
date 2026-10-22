@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/.21st
+references
+screenshots
+private-v2
+final
+qa
+*.md

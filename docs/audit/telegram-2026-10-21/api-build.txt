@@ -1,0 +1,54 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 438B done
+#1 DONE 0.0s
+
+#2 [auth] library/python:pull token for registry-1.docker.io
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 1.2s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 191B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 73.73kB done
+#5 DONE 0.0s
+
+#6 [1/7] FROM docker.io/library/python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+#6 resolve docker.io/library/python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1 0.0s done
+#6 DONE 0.0s
+
+#7 [3/7] COPY backend/requirements.txt /app/backend/requirements.txt
+#7 CACHED
+
+#8 [2/7] WORKDIR /app
+#8 CACHED
+
+#9 [4/7] RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+#9 CACHED
+
+#10 [5/7] COPY backend /app/backend
+#10 DONE 0.0s
+
+#11 [6/7] COPY db /app/db
+#11 DONE 0.0s
+
+#12 [7/7] COPY contracts /app/contracts
+#12 DONE 0.0s
+
+#13 exporting to image
+#13 exporting layers 0.0s done
+#13 exporting manifest sha256:f9373408c13f2a95e294e37170927e19c9865dac9623d1f1cf9cfa15f83aa4ac done
+#13 exporting config sha256:22389ac7bff6102f4a75f1b18c7816a90bca2d68264a15dcef7d4ef79c42cc8c done
+#13 exporting attestation manifest sha256:e3fa8f1199b1e0be73cbb8b1ee4bfda1eeadeac4baa75c03168d4eff7154babf done
+#13 exporting manifest list sha256:388cbfc83dd622f854c52cfa59ec23b1acf4ba4664223c79375b39d78fdf432c
+#13 exporting manifest list sha256:388cbfc83dd622f854c52cfa59ec23b1acf4ba4664223c79375b39d78fdf432c done
+#13 naming to docker.io/library/startup-team-telegram-api:local done
+#13 unpacking to docker.io/library/startup-team-telegram-api:local 0.0s done
+#13 DONE 0.1s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/jrhy4uezdqxqlsr3p10c2m0vf

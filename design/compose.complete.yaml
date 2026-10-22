@@ -1,0 +1,8 @@
+services:
+  design:
+    image: startup-team-design-complete:local
+    build:
+      context: .
+      dockerfile: prototypes/Dockerfile.complete
+    ports:
+      - "127.0.0.1:${COMPLETE_DESIGN_PORT:-18084}:80"

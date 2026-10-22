@@ -1,0 +1,85 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 276B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/nginx:1.27-alpine
+#3 DONE 0.3s
+
+#4 [build 1/7] FROM docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+#4 resolve docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 0.0s done
+#4 DONE 0.0s
+
+#5 [stage-1 1/3] FROM docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+#5 resolve docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 0.0s done
+#5 CACHED
+
+#6 [internal] load .dockerignore
+#6 transferring context: 72B done
+#6 DONE 0.0s
+
+#7 [build 2/6] WORKDIR /frontend
+#7 CACHED
+
+#8 [internal] load build context
+#8 transferring context: 638B done
+#8 DONE 0.0s
+
+#9 [build 3/6] COPY package*.json ./
+#9 DONE 0.0s
+
+#10 [build 4/6] RUN npm install
+#10 21.68 
+#10 21.68 added 21 packages, and audited 22 packages in 22s
+#10 21.68 
+#10 21.68 5 packages are looking for funding
+#10 21.68   run `npm fund` for details
+#10 21.68 
+#10 21.68 found 0 vulnerabilities
+#10 21.68 npm notice
+#10 21.68 npm notice New major version of npm available! 10.9.9 -> 12.2.0
+#10 21.68 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+#10 21.68 npm notice To update run: npm install -g npm@12.2.0
+#10 21.68 npm notice
+#10 DONE 21.8s
+
+#11 [build 5/6] COPY . .
+#11 DONE 0.0s
+
+#12 [build 6/6] RUN npm run build
+#12 0.124 
+#12 0.124 > startup-team-demo@0.1.0 build
+#12 0.124 > tsc -b && vite build
+#12 0.124 
+#12 1.346 vite v6.4.5 building for production...
+#12 1.383 transforming...
+#12 2.335 ✓ 1583 modules transformed.
+#12 2.428 rendering chunks...
+#12 2.432 computing gzip size...
+#12 2.438 dist/index.html                   0.46 kB │ gzip:  0.36 kB
+#12 2.438 dist/assets/index-Clc4CC2u.css   14.14 kB │ gzip:  3.94 kB
+#12 2.438 dist/assets/index-BrKyY7Sn.js   274.54 kB │ gzip: 83.27 kB
+#12 2.439 ✓ built in 1.07s
+#12 DONE 2.5s
+
+#13 [stage-1 2/3] COPY --from=build /frontend/dist /usr/share/nginx/html
+#13 DONE 0.0s
+
+#14 [stage-1 3/3] COPY nginx.conf /etc/nginx/conf.d/default.conf
+#14 DONE 0.0s
+
+#15 exporting to image
+#15 exporting layers 0.0s done
+#15 exporting manifest sha256:e2d33d650703b05fcf0228f9ce6dcc8c70f36ae8b110a0ac2a5f70a81a3dcf10 done
+#15 exporting config sha256:3cc705d5c5b751f16592fb34883eae81b3c494872ba84165e01ec1d289d328be done
+#15 exporting attestation manifest sha256:3f273de9bf2b28f0f9adc4577caa2484689e62aa285f00ffd533bf49cdefb443 done
+#15 exporting manifest list sha256:df20421d3a7b33720bc28b6432df5f91f10695342e91a0b1b8abfd8baa6c3ccc done
+#15 naming to docker.io/library/startup-adversarial-web:20261021 done
+#15 unpacking to docker.io/library/startup-adversarial-web:20261021 0.0s done
+#15 DONE 0.1s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/qe89m4oek2in2azrveubn4rku

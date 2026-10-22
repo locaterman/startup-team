@@ -1,0 +1,214 @@
+{
+  "screens": [
+    {
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "heading": "Стартапы",
+      "url": "?screen=catalog&as=ivan",
+      "width": 320
+    },
+    {
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "heading": "Вакансии",
+      "url": "?screen=vacancies&as=ivan",
+      "width": 320
+    },
+    {
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "heading": "Мои отклики",
+      "url": "?screen=applications&as=ivan",
+      "width": 320
+    },
+    {
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "heading": "Мой профиль",
+      "url": "?screen=profile&as=ivan",
+      "width": 320
+    },
+    {
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "heading": "Уведомления",
+      "url": "?screen=notifications&as=ivan",
+      "width": 320
+    },
+    {
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "heading": "Мои команды",
+      "url": "?screen=teams&as=ivan",
+      "width": 320
+    },
+    {
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "heading": "Кабинет",
+      "url": "?screen=cabinet&as=ivan&project=atlas&tab=settings",
+      "width": 320
+    },
+    {
+      "bodyWidth": 390,
+      "documentWidth": 390,
+      "heading": "Стартапы",
+      "url": "?screen=catalog&as=ivan",
+      "width": 390
+    },
+    {
+      "bodyWidth": 390,
+      "documentWidth": 390,
+      "heading": "Вакансии",
+      "url": "?screen=vacancies&as=ivan",
+      "width": 390
+    },
+    {
+      "bodyWidth": 390,
+      "documentWidth": 390,
+      "heading": "Мои отклики",
+      "url": "?screen=applications&as=ivan",
+      "width": 390
+    },
+    {
+      "bodyWidth": 390,
+      "documentWidth": 390,
+      "heading": "Мой профиль",
+      "url": "?screen=profile&as=ivan",
+      "width": 390
+    },
+    {
+      "bodyWidth": 390,
+      "documentWidth": 390,
+      "heading": "Уведомления",
+      "url": "?screen=notifications&as=ivan",
+      "width": 390
+    },
+    {
+      "bodyWidth": 390,
+      "documentWidth": 390,
+      "heading": "Мои команды",
+      "url": "?screen=teams&as=ivan",
+      "width": 390
+    },
+    {
+      "bodyWidth": 390,
+      "documentWidth": 390,
+      "heading": "Кабинет",
+      "url": "?screen=cabinet&as=ivan&project=atlas&tab=settings",
+      "width": 390
+    },
+    {
+      "bodyWidth": 768,
+      "documentWidth": 768,
+      "heading": "Стартапы",
+      "url": "?screen=catalog&as=ivan",
+      "width": 768
+    },
+    {
+      "bodyWidth": 768,
+      "documentWidth": 768,
+      "heading": "Вакансии",
+      "url": "?screen=vacancies&as=ivan",
+      "width": 768
+    },
+    {
+      "bodyWidth": 768,
+      "documentWidth": 768,
+      "heading": "Мои отклики",
+      "url": "?screen=applications&as=ivan",
+      "width": 768
+    },
+    {
+      "bodyWidth": 768,
+      "documentWidth": 768,
+      "heading": "Мой профиль",
+      "url": "?screen=profile&as=ivan",
+      "width": 768
+    },
+    {
+      "bodyWidth": 768,
+      "documentWidth": 768,
+      "heading": "Уведомления",
+      "url": "?screen=notifications&as=ivan",
+      "width": 768
+    },
+    {
+      "bodyWidth": 768,
+      "documentWidth": 768,
+      "heading": "Мои команды",
+      "url": "?screen=teams&as=ivan",
+      "width": 768
+    },
+    {
+      "bodyWidth": 768,
+      "documentWidth": 768,
+      "heading": "Кабинет",
+      "url": "?screen=cabinet&as=ivan&project=atlas&tab=settings",
+      "width": 768
+    },
+    {
+      "bodyWidth": 1440,
+      "documentWidth": 1440,
+      "heading": "Стартапы",
+      "url": "?screen=catalog&as=ivan",
+      "width": 1440
+    },
+    {
+      "bodyWidth": 1440,
+      "documentWidth": 1440,
+      "heading": "Вакансии",
+      "url": "?screen=vacancies&as=ivan",
+      "width": 1440
+    },
+    {
+      "bodyWidth": 1440,
+      "documentWidth": 1440,
+      "heading": "Мои отклики",
+      "url": "?screen=applications&as=ivan",
+      "width": 1440
+    },
+    {
+      "bodyWidth": 1440,
+      "documentWidth": 1440,
+      "heading": "Мой профиль",
+      "url": "?screen=profile&as=ivan",
+      "width": 1440
+    },
+    {
+      "bodyWidth": 1440,
+      "documentWidth": 1440,
+      "heading": "Уведомления",
+      "url": "?screen=notifications&as=ivan",
+      "width": 1440
+    },
+    {
+      "bodyWidth": 1440,
+      "documentWidth": 1440,
+      "heading": "Мои команды",
+      "url": "?screen=teams&as=ivan",
+      "width": 1440
+    },
+    {
+      "bodyWidth": 1440,
+      "documentWidth": 1440,
+      "heading": "Кабинет",
+      "url": "?screen=cabinet&as=ivan&project=atlas&tab=settings",
+      "width": 1440
+    }
+  ],
+  "dialogs": [
+    {
+      "dialogContentWidth": 320,
+      "dialogWidth": 320,
+      "documentWidth": 320,
+      "width": 320
+    },
+    {
+      "dialogContentWidth": 390,
+      "dialogWidth": 390,
+      "documentWidth": 390,
+      "width": 390
+    }
+  ]
+}

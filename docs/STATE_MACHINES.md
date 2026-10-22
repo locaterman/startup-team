@@ -20,6 +20,7 @@ Target implementation, selected by user. No AI matching, recommendations or rank
 - One permanent `Application` per (applicant, vacancy); one per (applicant, startup) for general interest.
 - Attempts: `pending -> reviewing -> offer_pending -> joined`; branches `rejected`, `withdrawn`, `reset`, `declined`, `already_joined`, `closed`.
 - Applicant withdraws pending or reviewing; may restore only before intake ends. Rejection cannot be independently restored.
+- Restore reconciles submissions of this same attempt with later critical test versions under the startup lock: older solutions become `superseded`, preserving `reviewed_by`/`reviewed_at`. Ordinary changes do not invalidate them; historical attempts and completed hires are unchanged.
 - On major vacancy update, publisher chooses keep or reset; reset cancels unfinished attempts *except those with pending offers*. Resubmission creates new attempt without deleting historical version.
 - After joining via one offer, close other unfinished attempts to same startup; do not affect other startups.
 - Intake deadline affects **new** applications, not previously submitted applications or pending offers.
@@ -83,6 +84,7 @@ future; selection may continue after the intake deadline.
 - `pending -> declined` belongs to invitee; can happen during pause.
 - `pending -> revoked` belongs to startup owner; allowed during pause.
 - `pending -> expired` uses server/database time and is permitted in any startup state.
+- Recipient/owner list responses compute effective `expired` status even before lazy persistence. Late acceptance/decline/revocation fails; archive expires elapsed invitations before revoking the remaining pending invitations.
 - Archiving startup revokes all `pending` recruiter invitations.
 - `accepted` creates a matching recruiter grant atomically. Grant revocation is
   separate and does not rewrite the historical invitation.
@@ -91,6 +93,7 @@ future; selection may continue after the intake deadline.
 
 - Vacancy `positions_count >= occupied + reserved` after every successful
   transaction changing the limit or capacity.
+- Create/settings accept strict JSON integers in 1..2147483647 (PostgreSQL INTEGER range); strings, booleans, fractions and out-of-range values return validation error 422 before any write.
 - `occupied` counts active members joined through **accepted** offers on that vacancy.
 - `reserved` counts `pending` vacancy offers whose `expires_at` is in the future.
 - No negative availability: lowering capacity below occupied+reserved fails

@@ -121,6 +121,17 @@ export type Page<T> = { items: T[]; next_cursor: string | null };
 let csrf = "";
 const pending = new Map<string, string>();
 const messages: Record<string, string> = {
+  ONBOARDING_REQUIRED:
+    "Завершите заполнение профиля перед этим действием.",
+  INVALID_TELEGRAM_AUTH:
+    "Не удалось подтвердить Telegram-вход. Закройте приложение и откройте его заново через бота.",
+  TELEGRAM_AUTH_EXPIRED:
+    "Данные входа устарели. Закройте приложение и откройте его заново через бота.",
+  TELEGRAM_AUTH_REPLAY:
+    "Этот вход уже использован. Закройте приложение и откройте его заново через бота.",
+  TELEGRAM_AUTH_UNAVAILABLE: "Telegram-вход пока не настроен на сервере.",
+  DEMO_LOGIN_DISABLED:
+    "Демонстрационный вход отключён. Откройте приложение через Telegram.",
   REVISION_CONFLICT:
     "Данные уже изменились. Закройте форму, обновите страницу и проверьте новые условия.",
   NO_CAPACITY: "Все места заняты или зарезервированы.",
@@ -151,7 +162,7 @@ export async function api<T>(
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const command = method !== "GET" && !path.startsWith("/auth/");
-  if (method !== "GET" && path !== "/auth/login")
+  if (method !== "GET" && path !== "/auth/login" && path !== "/auth/telegram")
     headers["X-CSRF-Token"] = csrf;
   if (command) {
     let key = pending.get(signature);

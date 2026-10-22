@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Rocket, LogOut, Plus, ArrowLeft } from "lucide-react";
 import { api, all, setCsrf, dateTime, localDate, instant } from "./api";
+import { AuthScreen, OnboardingScreen } from "./AuthScreen";
+import { telegramApp, type AuthConfig, type AuthContext } from "./telegram";
 import type {
   Person,
   Startup,
@@ -294,6 +296,11 @@ export default function App() {
     [dialog, setDialog] = useState<Dialog | null>(null);
   const [email, setEmail] = useState("ivan@example.test"),
     [password, setPassword] = useState("demo-ivan-123");
+  const [authConfig, setAuthConfig] = useState<AuthConfig>({
+    telegram_enabled: false,
+    demo_enabled: false,
+  });
+  const [onboarding, setOnboarding] = useState(false);
   const refresh = () => setRevision((v) => v + 1);
   const perform = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -313,88 +320,98 @@ export default function App() {
     setError("");
     setDialog(value);
   };
-  const login = async () => {
-    const person = await api<Person>("/auth/login", "POST", {
-      email,
-      password,
-    });
+  const finishLogin = async (person: Person) => {
     setCsrf((await api<{ csrf_token: string }>("/auth/csrf")).csrf_token);
+    const context = await api<AuthContext>("/auth/context");
+    setOnboarding(context.onboarding_required);
     setUser(person);
     setTab("projects");
     setSelected(null);
   };
-  useEffect(() => {
-    (async () => {
-      try {
-        const person = await api<Person>("/auth/me");
-        setCsrf((await api<{ csrf_token: string }>("/auth/csrf")).csrf_token);
-        setUser(person);
-      } catch {
-      } finally {
-        setReady(true);
+  const login = async () => {
+    await finishLogin(
+      await api<Person>("/auth/login", "POST", { email, password }),
+    );
+  };
+  const loginTelegram = async () => {
+    const initData = telegramApp()?.initData;
+    if (!initData)
+      throw Error("Откройте приложение через Telegram-бота клуба.");
+    await finishLogin(
+      await api<Person>("/auth/telegram", "POST", { init_data: initData }),
+    );
+  };
+  const bootstrap = async () => {
+    setReady(false);
+    setError("");
+    try {
+      setAuthConfig(await api<AuthConfig>("/auth/config"));
+      if (telegramApp()?.initData) {
+        await loginTelegram();
+      } else {
+        try {
+          await finishLogin(await api<Person>("/auth/me"));
+        } catch {
+          setUser(null);
+        }
       }
-    })();
+    } catch (e) {
+      setUser(null);
+      setError(e instanceof Error ? e.message : "Не удалось проверить вход");
+    } finally {
+      setReady(true);
+      telegramApp()?.ready();
+      telegramApp()?.expand();
+    }
+  };
+  useEffect(() => {
+    void bootstrap();
   }, []);
   if (!ready)
     return (
-      <main className="container">
-        <p>Загрузка…</p>
+      <main className="tg-auth">
+        <p role="status" style={{ paddingTop: 60 }}>
+          Проверяем вход…
+        </p>
       </main>
     );
   if (!user)
     return (
-      <main className="auth-shell">
-        <div className="auth-hero">
-          <div className="brand">
-            <Rocket /> Бизнес-клуб <span>TEAM</span>
-          </div>
-          <h1>
-            Идеи становятся сильнее,
-            <br />
-            когда находят команду.
-          </h1>
-          <p>Стартапы, вакансии и сотрудничество в одном пространстве.</p>
-        </div>
-        <form
-          className="login"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void perform(login);
-          }}
-        >
-          <div className="small-cap">Демо-доступ</div>
-          <h2>Добро пожаловать</h2>
-          <label>
-            Email
-            <input
-              required
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-          <label>
-            Пароль
-            <input
-              required
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
-          {error && <p className="error">{error}</p>}
-          <button className="primary" disabled={busy}>
-            Войти
-          </button>
-          <p className="hint">
-            ivan@example.test / demo-ivan-123
-            <br />
-            maria@example.test / demo-maria-123
-            <br />
-            alex@example.test / demo-alex-123
-          </p>
-        </form>
-      </main>
+      <AuthScreen
+        config={authConfig}
+        insideTelegram={!!telegramApp()?.initData}
+        error={error}
+        busy={busy}
+        email={email}
+        password={password}
+        onEmail={setEmail}
+        onPassword={setPassword}
+        onDemo={() => void perform(login)}
+        onTelegram={() => void perform(loginTelegram)}
+        onRetry={() => void perform(bootstrap)}
+      />
+    );
+  if (onboarding)
+    return (
+      <OnboardingScreen
+        user={user}
+        busy={busy}
+        error={error}
+        onSave={(values) =>
+          void perform(async () => {
+            setUser(await api<Person>("/users/me", "PATCH", values));
+            setOnboarding(false);
+          })
+        }
+        onLogout={() =>
+          void perform(async () => {
+            await api("/auth/logout", "POST");
+            setCsrf("");
+            setUser(null);
+            setOnboarding(false);
+          })
+        }
+      />
     );
   const context: Context = {
     user,

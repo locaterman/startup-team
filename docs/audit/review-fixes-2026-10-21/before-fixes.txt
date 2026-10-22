@@ -1,0 +1,339 @@
+..FFF....FF.FF..FF.FF.FF..                                               [100%]
+=================================== FAILURES ===================================
+_ test_restore_reconciles_test_currency_without_erasing_review[critical-False] _
+
+clients = {'ivan': (<starlette.testclient.TestClient object at 0xffffadf9d6a0>, {'X-CSRF-Token': '07d64c47f216fe2251a548c021c7aa...lient object at 0xffffadf9c560>, {'X-CSRF-Token': 'a5b2fd3179066cb4e8f32f6db2ffb8bba5d154b4bba8af107503bd2635ac540f'})}
+reviewed = False, kind = 'critical'
+
+    @pytest.mark.parametrize('reviewed', [False, True])
+    @pytest.mark.parametrize('kind', ['ordinary', 'critical'])
+    def test_restore_reconciles_test_currency_without_erasing_review(clients, reviewed, kind):
+        owner, candidate, _, vacancy, application, submission = setup(clients)
+        if reviewed:
+            assert owner[0].patch('/api/v1/test-submissions/' + submission,
+                                  json={'status': 'reviewed'}, headers=owner[1]).status_code == 200
+        before = sql('SELECT reviewed_by,reviewed_at FROM test_submissions WHERE id=:id', id=submission)[0]
+        assert post(candidate, f'/applications/{application}/withdraw').status_code == 200
+        assert create_task(owner, vacancy, kind).status_code == 201
+        assert post(candidate, f'/applications/{application}/restore').status_code == 200
+        rows = candidate[0].get(f'/api/v1/applications/{application}/test-submissions').json()['items']
+>       assert rows[0]['status'] == ('superseded' if kind == 'critical' else 'reviewed' if reviewed else 'submitted')
+E       AssertionError: assert 'submitted' == 'superseded'
+E         
+E         - superseded
+E         + submitted
+
+backend/tests/test_review_fixes_postgres.py:64: AssertionError
+_ test_restore_reconciles_test_currency_without_erasing_review[critical-True] __
+
+clients = {'ivan': (<starlette.testclient.TestClient object at 0xffffae047cb0>, {'X-CSRF-Token': '9120891b647d5a7368e78f80b12047...lient object at 0xffffae0253a0>, {'X-CSRF-Token': 'e1d0e3f3f07c9a3e7bc3e6f9c8d296ec7c670297b892fb523162b9ce4cae02a3'})}
+reviewed = True, kind = 'critical'
+
+    @pytest.mark.parametrize('reviewed', [False, True])
+    @pytest.mark.parametrize('kind', ['ordinary', 'critical'])
+    def test_restore_reconciles_test_currency_without_erasing_review(clients, reviewed, kind):
+        owner, candidate, _, vacancy, application, submission = setup(clients)
+        if reviewed:
+            assert owner[0].patch('/api/v1/test-submissions/' + submission,
+                                  json={'status': 'reviewed'}, headers=owner[1]).status_code == 200
+        before = sql('SELECT reviewed_by,reviewed_at FROM test_submissions WHERE id=:id', id=submission)[0]
+        assert post(candidate, f'/applications/{application}/withdraw').status_code == 200
+        assert create_task(owner, vacancy, kind).status_code == 201
+        assert post(candidate, f'/applications/{application}/restore').status_code == 200
+        rows = candidate[0].get(f'/api/v1/applications/{application}/test-submissions').json()['items']
+>       assert rows[0]['status'] == ('superseded' if kind == 'critical' else 'reviewed' if reviewed else 'submitted')
+E       AssertionError: assert 'reviewed' == 'superseded'
+E         
+E         - superseded
+E         + reviewed
+
+backend/tests/test_review_fixes_postgres.py:64: AssertionError
+____________ test_critical_restore_serializes_in_both_orders[False] ____________
+
+clients = {'ivan': (<starlette.testclient.TestClient object at 0xffffae06aff0>, {'X-CSRF-Token': 'a80fb2ed3ec1c30ce2514ce3885780...lient object at 0xfffface9a990>, {'X-CSRF-Token': '02731bfc4921858845fdf1e30ac045ed1ef39c3d0053d4fa0f0c5c9896c4da01'})}
+restore_first = False
+
+    @pytest.mark.parametrize('restore_first', [False, True])
+    def test_critical_restore_serializes_in_both_orders(clients, restore_first):
+        owner, candidate, project, vacancy, application, submission = setup(clients)
+        assert post(candidate, f'/applications/{application}/withdraw').status_code == 200
+        critical = lambda: create_task(owner, vacancy, 'critical')
+        restore = lambda: post(candidate, f'/applications/{application}/restore')
+        responses = ordered_race(project, restore if restore_first else critical, critical if restore_first else restore)
+        assert sorted(r.status_code for r in responses) == [200, 201]
+>       assert sql('SELECT status FROM test_submissions WHERE id=:id', id=submission)[0]['status'] == 'superseded'
+E       AssertionError: assert 'submitted' == 'superseded'
+E         
+E         - superseded
+E         + submitted
+
+backend/tests/test_review_fixes_postgres.py:110: AssertionError
+___ test_capacity_rejects_invalid_values_without_changes[create-2147483648] ____
+
+clients = {'ivan': (<starlette.testclient.TestClient object at 0xfffface0b920>, {'X-CSRF-Token': '095ff05cf786597c5ff10d7d1f17ca...lient object at 0xffffaced9880>, {'X-CSRF-Token': '8b942a7e30cb2ede27aa1f46a7750ee8e6d03bfeaed829a6328571cb516c28f9'})}
+value = 2147483648, operation = 'create'
+
+    @pytest.mark.parametrize('value', [0, -1, 2147483648, 10**50, 1.5, '2', True])
+    @pytest.mark.parametrize('operation', ['create', 'settings'])
+    def test_capacity_rejects_invalid_values_without_changes(clients, value, operation):
+        owner, _, project, vacancy, _, _ = setup(clients)
+        before = sql('SELECT id,positions_count,revision FROM vacancies WHERE startup_id=:id ORDER BY id', id=project)
+        with TestClient(app, raise_server_exceptions=False) as client:
+            client.cookies.update(owner[0].cookies)
+            if operation == 'create':
+                response = client.post(f'/api/v1/startups/{project}/vacancies', headers=owner[1], json={
+                    'title': 'Invalid', 'positions_count': value, 'application_deadline': future(),
+                })
+            else:
+                response = client.patch(f'/api/v1/vacancies/{vacancy}/settings', headers=owner[1],
+                                        json={'positions_count': value})
+>       assert response.status_code == 422, response.text
+E       AssertionError: Internal Server Error
+E       assert 500 == 422
+E        +  where 500 = <Response [500 Internal Server Error]>.status_code
+
+backend/tests/test_review_fixes_postgres.py:138: AssertionError
+_ test_capacity_rejects_invalid_values_without_changes[create-100000000000000000000000000000000000000000000000000] _
+
+clients = {'ivan': (<starlette.testclient.TestClient object at 0xffffac445b50>, {'X-CSRF-Token': '16e280bcf313bad657629dcc0809c3...lient object at 0xffffacdd5c40>, {'X-CSRF-Token': '01d47811e9823118f3873c12717c1c1ffaa0a6f66d63d9eb5270e0a56c6e6764'})}
+value = 100000000000000000...0000000000000000000, operation = 'create'
+
+    @pytest.mark.parametrize('value', [0, -1, 2147483648, 10**50, 1.5, '2', True])
+    @pytest.mark.parametrize('operation', ['create', 'settings'])
+    def test_capacity_rejects_invalid_values_without_changes(clients, value, operation):
+        owner, _, project, vacancy, _, _ = setup(clients)
+        before = sql('SELECT id,positions_count,revision FROM vacancies WHERE startup_id=:id ORDER BY id', id=project)
+        with TestClient(app, raise_server_exceptions=False) as client:
+            client.cookies.update(owner[0].cookies)
+            if operation == 'create':
+                response = client.post(f'/api/v1/startups/{project}/vacancies', headers=owner[1], json={
+                    'title': 'Invalid', 'positions_count': value, 'application_deadline': future(),
+                })
+            else:
+                response = client.patch(f'/api/v1/vacancies/{vacancy}/settings', headers=owner[1],
+                                        json={'positions_count': value})
+>       assert response.status_code == 422, response.text
+E       AssertionError: Internal Server Error
+E       assert 500 == 422
+E        +  where 500 = <Response [500 Internal Server Error]>.status_code
+
+backend/tests/test_review_fixes_postgres.py:138: AssertionError
+________ test_capacity_rejects_invalid_values_without_changes[create-2] ________
+
+clients = {'ivan': (<starlette.testclient.TestClient object at 0xffffac4b5940>, {'X-CSRF-Token': 'b533411a56614911232c9a505769f4...lient object at 0xffffac4e2ab0>, {'X-CSRF-Token': 'b0245ae6e1fb9482dc06ed88b7d73cdd8d0caffbac9fdbac0723ceda3d8b9fee'})}
+value = '2', operation = 'create'
+
+    @pytest.mark.parametrize('value', [0, -1, 2147483648, 10**50, 1.5, '2', True])
+    @pytest.mark.parametrize('operation', ['create', 'settings'])
+    def test_capacity_rejects_invalid_values_without_changes(clients, value, operation):
+        owner, _, project, vacancy, _, _ = setup(clients)
+        before = sql('SELECT id,positions_count,revision FROM vacancies WHERE startup_id=:id ORDER BY id', id=project)
+        with TestClient(app, raise_server_exceptions=False) as client:
+            client.cookies.update(owner[0].cookies)
+            if operation == 'create':
+                response = client.post(f'/api/v1/startups/{project}/vacancies', headers=owner[1], json={
+                    'title': 'Invalid', 'positions_count': value, 'application_deadline': future(),
+                })
+            else:
+                response = client.patch(f'/api/v1/vacancies/{vacancy}/settings', headers=owner[1],
+                                        json={'positions_count': value})
+>       assert response.status_code == 422, response.text
+E       AssertionError: {"id":"db54da27-0d4c-444c-986e-b069747af2d9","startup_id":"d8f624a6-dc3e-4953-abd1-32de7f72aca0","owner_id":"a9beafdc-e03a-4d64-a130-a617e32860a6","startup_status":"active","status":"published","application_deadline":"2026-10-23T10:40:22.925418+00:00","positions_count":2,"current_version":1,"revision":1,"title":"Invalid","description":"","requirements":""}
+E       assert 201 == 422
+E        +  where 201 = <Response [201 Created]>.status_code
+
+backend/tests/test_review_fixes_postgres.py:138: AssertionError
+______ test_capacity_rejects_invalid_values_without_changes[create-True] _______
+
+clients = {'ivan': (<starlette.testclient.TestClient object at 0xffffae025130>, {'X-CSRF-Token': 'fda178706a3b354b03af11325eff2b...lient object at 0xffffae0274d0>, {'X-CSRF-Token': '944f403506bdc8063f9a997afd5001f9b9b283334f9147d4dec8dcdd511f1100'})}
+value = True, operation = 'create'
+
+    @pytest.mark.parametrize('value', [0, -1, 2147483648, 10**50, 1.5, '2', True])
+    @pytest.mark.parametrize('operation', ['create', 'settings'])
+    def test_capacity_rejects_invalid_values_without_changes(clients, value, operation):
+        owner, _, project, vacancy, _, _ = setup(clients)
+        before = sql('SELECT id,positions_count,revision FROM vacancies WHERE startup_id=:id ORDER BY id', id=project)
+        with TestClient(app, raise_server_exceptions=False) as client:
+            client.cookies.update(owner[0].cookies)
+            if operation == 'create':
+                response = client.post(f'/api/v1/startups/{project}/vacancies', headers=owner[1], json={
+                    'title': 'Invalid', 'positions_count': value, 'application_deadline': future(),
+                })
+            else:
+                response = client.patch(f'/api/v1/vacancies/{vacancy}/settings', headers=owner[1],
+                                        json={'positions_count': value})
+>       assert response.status_code == 422, response.text
+E       AssertionError: {"id":"0dbdd1a1-253d-434b-8588-1433a962af55","startup_id":"51c1729d-3c2d-4272-aed0-e0cd9ae1a7d1","owner_id":"96c13538-9905-4242-8506-f89647f91bc4","startup_status":"active","status":"published","application_deadline":"2026-10-23T10:40:23.223201+00:00","positions_count":1,"current_version":1,"revision":1,"title":"Invalid","description":"","requirements":""}
+E       assert 201 == 422
+E        +  where 201 = <Response [201 Created]>.status_code
+
+backend/tests/test_review_fixes_postgres.py:138: AssertionError
+__ test_capacity_rejects_invalid_values_without_changes[settings-2147483648] ___
+
+clients = {'ivan': (<starlette.testclient.TestClient object at 0xffffadfbc860>, {'X-CSRF-Token': '82637cec56489aa55072993fdcbdd8...lient object at 0xffffac3c7350>, {'X-CSRF-Token': '6f2dd2562bdbc090e0bf4d3c41d558d960515986aa41848716caaa6dd979d767'})}
+value = 2147483648, operation = 'settings'
+
+    @pytest.mark.parametrize('value', [0, -1, 2147483648, 10**50, 1.5, '2', True])
+    @pytest.mark.parametrize('operation', ['create', 'settings'])
+    def test_capacity_rejects_invalid_values_without_changes(clients, value, operation):
+        owner, _, project, vacancy, _, _ = setup(clients)
+        before = sql('SELECT id,positions_count,revision FROM vacancies WHERE startup_id=:id ORDER BY id', id=project)
+        with TestClient(app, raise_server_exceptions=False) as client:
+            client.cookies.update(owner[0].cookies)
+            if operation == 'create':
+                response = client.post(f'/api/v1/startups/{project}/vacancies', headers=owner[1], json={
+                    'title': 'Invalid', 'positions_count': value, 'application_deadline': future(),
+                })
+            else:
+                response = client.patch(f'/api/v1/vacancies/{vacancy}/settings', headers=owner[1],
+                                        json={'positions_count': value})
+>       assert response.status_code == 422, response.text
+E       AssertionError: Internal Server Error
+E       assert 500 == 422
+E        +  where 500 = <Response [500 Internal Server Error]>.status_code
+
+backend/tests/test_review_fixes_postgres.py:138: AssertionError
+_ test_capacity_rejects_invalid_values_without_changes[settings-100000000000000000000000000000000000000000000000000] _
+
+clients = {'ivan': (<starlette.testclient.TestClient object at 0xffffac3cd010>, {'X-CSRF-Token': 'cb1f356be05d4ea6b51686973f3e9a...lient object at 0xffffac4e2300>, {'X-CSRF-Token': '95f27d926fe7f63cea62234e35dc5f1648431c4267ddf0a6d4f56c07b4edfdb9'})}
+value = 100000000000000000...0000000000000000000, operation = 'settings'
+
+    @pytest.mark.parametrize('value', [0, -1, 2147483648, 10**50, 1.5, '2', True])
+    @pytest.mark.parametrize('operation', ['create', 'settings'])
+    def test_capacity_rejects_invalid_values_without_changes(clients, value, operation):
+        owner, _, project, vacancy, _, _ = setup(clients)
+        before = sql('SELECT id,positions_count,revision FROM vacancies WHERE startup_id=:id ORDER BY id', id=project)
+        with TestClient(app, raise_server_exceptions=False) as client:
+            client.cookies.update(owner[0].cookies)
+            if operation == 'create':
+                response = client.post(f'/api/v1/startups/{project}/vacancies', headers=owner[1], json={
+                    'title': 'Invalid', 'positions_count': value, 'application_deadline': future(),
+                })
+            else:
+                response = client.patch(f'/api/v1/vacancies/{vacancy}/settings', headers=owner[1],
+                                        json={'positions_count': value})
+>       assert response.status_code == 422, response.text
+E       AssertionError: Internal Server Error
+E       assert 500 == 422
+E        +  where 500 = <Response [500 Internal Server Error]>.status_code
+
+backend/tests/test_review_fixes_postgres.py:138: AssertionError
+_______ test_capacity_rejects_invalid_values_without_changes[settings-2] _______
+
+clients = {'ivan': (<starlette.testclient.TestClient object at 0xffffac28be00>, {'X-CSRF-Token': '96e4b95a186ec164b2af85a9f5b1a9...lient object at 0xffffadfe46e0>, {'X-CSRF-Token': '0304464a018c3df68cf752d95d1622a6bc5b36e07b6ceba4d0ac4451d213fa20'})}
+value = '2', operation = 'settings'
+
+    @pytest.mark.parametrize('value', [0, -1, 2147483648, 10**50, 1.5, '2', True])
+    @pytest.mark.parametrize('operation', ['create', 'settings'])
+    def test_capacity_rejects_invalid_values_without_changes(clients, value, operation):
+        owner, _, project, vacancy, _, _ = setup(clients)
+        before = sql('SELECT id,positions_count,revision FROM vacancies WHERE startup_id=:id ORDER BY id', id=project)
+        with TestClient(app, raise_server_exceptions=False) as client:
+            client.cookies.update(owner[0].cookies)
+            if operation == 'create':
+                response = client.post(f'/api/v1/startups/{project}/vacancies', headers=owner[1], json={
+                    'title': 'Invalid', 'positions_count': value, 'application_deadline': future(),
+                })
+            else:
+                response = client.patch(f'/api/v1/vacancies/{vacancy}/settings', headers=owner[1],
+                                        json={'positions_count': value})
+>       assert response.status_code == 422, response.text
+E       AssertionError: {"id":"1777bea7-ce47-48a3-9528-7d95b55635ac","startup_id":"29649fe2-fd95-4401-b265-7ad3cdb8b03f","owner_id":"d9e99987-3511-4b69-bcb9-dc6c9d6ff865","startup_status":"active","status":"published","application_deadline":"2026-10-23T10:40:24.963697+00:00","positions_count":2,"current_version":1,"revision":2,"title":"Developer","description":"","requirements":""}
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+
+backend/tests/test_review_fixes_postgres.py:138: AssertionError
+_____ test_capacity_rejects_invalid_values_without_changes[settings-True] ______
+
+clients = {'ivan': (<starlette.testclient.TestClient object at 0xffffac289760>, {'X-CSRF-Token': 'ed53c74aa7175f43d525693d2db3cd...lient object at 0xffffac3cd5b0>, {'X-CSRF-Token': '9bdf2096a5bf76534b6397abe8b03a2fa8f83297b7222d7837e2b1789a3948e7'})}
+value = True, operation = 'settings'
+
+    @pytest.mark.parametrize('value', [0, -1, 2147483648, 10**50, 1.5, '2', True])
+    @pytest.mark.parametrize('operation', ['create', 'settings'])
+    def test_capacity_rejects_invalid_values_without_changes(clients, value, operation):
+        owner, _, project, vacancy, _, _ = setup(clients)
+        before = sql('SELECT id,positions_count,revision FROM vacancies WHERE startup_id=:id ORDER BY id', id=project)
+        with TestClient(app, raise_server_exceptions=False) as client:
+            client.cookies.update(owner[0].cookies)
+            if operation == 'create':
+                response = client.post(f'/api/v1/startups/{project}/vacancies', headers=owner[1], json={
+                    'title': 'Invalid', 'positions_count': value, 'application_deadline': future(),
+                })
+            else:
+                response = client.patch(f'/api/v1/vacancies/{vacancy}/settings', headers=owner[1],
+                                        json={'positions_count': value})
+>       assert response.status_code == 422, response.text
+E       AssertionError: {"id":"29b3a611-c193-4bd2-9dbb-33c14504cc05","startup_id":"cacd86cc-930e-46e5-80c9-bf6c9fc5e409","owner_id":"aefca490-6e72-4775-857e-91110bd47b62","startup_status":"active","status":"published","application_deadline":"2026-10-23T10:40:25.255191+00:00","positions_count":1,"current_version":1,"revision":2,"title":"Developer","description":"","requirements":""}
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+
+backend/tests/test_review_fixes_postgres.py:138: AssertionError
+_____ test_onboarding_blocks_domain_changes_but_allows_profile_and_logout ______
+
+clients = {'ivan': (<starlette.testclient.TestClient object at 0xffffac2ec4d0>, {'X-CSRF-Token': 'b187ce9a2a1d4d80817e069754b50e...lient object at 0xfffface247d0>, {'X-CSRF-Token': 'c0a09e80ce1603872afd915de9b45fa8aa32981da74131c7c7300c6dddb06831'})}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xffffac2ed6d0>
+
+    def test_onboarding_blocks_domain_changes_but_allows_profile_and_logout(clients, monkeypatch):
+        monkeypatch.setenv('TELEGRAM_BOT_TOKEN', TOKEN)
+        project = post(clients['ivan'], '/startups', {'title': 'Existing project'}).json()['id']
+        with TestClient(app) as client:
+            assert client.post('/api/v1/auth/telegram', json={'init_data': signed(stamp=int(time.time()))}).status_code == 200
+            user = client.get('/api/v1/auth/me').json()['id']
+            headers = {'X-CSRF-Token': client.get('/api/v1/auth/csrf').json()['csrf_token']}
+            assert client.get('/api/v1/auth/context').json()['onboarding_required']
+            commands = [
+                ('POST', '/startups', {'title': 'Blocked'}),
+                ('POST', '/applications', {'target_type': 'startup', 'target_id': project}),
+                ('PATCH', '/startups/' + project, {'title': 'Blocked edit'}),
+                ('DELETE', '/startups/' + project, None),
+            ]
+            for method, path, body in commands:
+                response = client.request(method, '/api/v1' + path, headers=headers, json=body)
+>               assert response.status_code == 403, response.text
+E               AssertionError: {"id":"393ab7a7-00d4-46e7-abea-f08c43101da4","owner_id":"81116fce-1fc5-45cb-8390-fcf7b441155e","title":"Blocked","description":"","status":"active","allow_general_applications":true,"revision":1}
+E               assert 201 == 403
+E                +  where 201 = <Response [201 Created]>.status_code
+
+backend/tests/test_review_fixes_postgres.py:172: AssertionError
+______ test_expired_recruiter_is_visible_to_recipient_without_owner_read _______
+
+clients = {'ivan': (<starlette.testclient.TestClient object at 0xffffac143dd0>, {'X-CSRF-Token': '63524aa08911323bc0645de8bbc612...lient object at 0xffffac1506e0>, {'X-CSRF-Token': '5e06d48a059853daddfa35dab4168691092f6d5394b9efed6dea7c2576ec47d7'})}
+
+    def test_expired_recruiter_is_visible_to_recipient_without_owner_read(clients):
+        owner, recipient = clients['ivan'], clients['alex']
+        project = post(owner, '/startups', {'title': 'Recruiter expiry'}).json()['id']
+        user = recipient[0].get('/api/v1/auth/me').json()['id']
+        invitation = post(owner, f'/startups/{project}/recruiter-invitations', {
+            'user_id': user, 'expires_at': future(),
+        }).json()['id']
+        sql("UPDATE recruiter_invitations SET expires_at=clock_timestamp()-interval '1 second' WHERE id=:id", id=invitation)
+        for _ in range(2):
+            rows = recipient[0].get('/api/v1/recruiter-invitations/mine').json()['items']
+>           assert next(x for x in rows if x['id'] == invitation)['status'] == 'expired'
+E           AssertionError: assert 'pending' == 'expired'
+E             
+E             - expired
+E             + pending
+
+backend/tests/test_review_fixes_postgres.py:196: AssertionError
+=============================== warnings summary ===============================
+../usr/local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /usr/local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_review_fixes_postgres.py::test_restore_reconciles_test_currency_without_erasing_review[critical-False]
+FAILED backend/tests/test_review_fixes_postgres.py::test_restore_reconciles_test_currency_without_erasing_review[critical-True]
+FAILED backend/tests/test_review_fixes_postgres.py::test_critical_restore_serializes_in_both_orders[False]
+FAILED backend/tests/test_review_fixes_postgres.py::test_capacity_rejects_invalid_values_without_changes[create-2147483648]
+FAILED backend/tests/test_review_fixes_postgres.py::test_capacity_rejects_invalid_values_without_changes[create-100000000000000000000000000000000000000000000000000]
+FAILED backend/tests/test_review_fixes_postgres.py::test_capacity_rejects_invalid_values_without_changes[create-2]
+FAILED backend/tests/test_review_fixes_postgres.py::test_capacity_rejects_invalid_values_without_changes[create-True]
+FAILED backend/tests/test_review_fixes_postgres.py::test_capacity_rejects_invalid_values_without_changes[settings-2147483648]
+FAILED backend/tests/test_review_fixes_postgres.py::test_capacity_rejects_invalid_values_without_changes[settings-100000000000000000000000000000000000000000000000000]
+FAILED backend/tests/test_review_fixes_postgres.py::test_capacity_rejects_invalid_values_without_changes[settings-2]
+FAILED backend/tests/test_review_fixes_postgres.py::test_capacity_rejects_invalid_values_without_changes[settings-True]
+FAILED backend/tests/test_review_fixes_postgres.py::test_onboarding_blocks_domain_changes_but_allows_profile_and_logout
+FAILED backend/tests/test_review_fixes_postgres.py::test_expired_recruiter_is_visible_to_recipient_without_owner_read
+13 failed, 13 passed, 1 warning in 8.21s

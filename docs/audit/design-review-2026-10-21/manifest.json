@@ -1,0 +1,290 @@
+{
+  "commit": "1762b455b714828a029f4ad77cf34dfb8ed1110b",
+  "files": [
+    {
+      "path": "design/.dockerignore",
+      "bytes": 81,
+      "sha256": "f9ad833943fa114ba9f6808251557501905b19ab9975d288d69ae2f2275e4fa0"
+    },
+    {
+      "path": "design/TRANSFER_MAC.md",
+      "bytes": 3154,
+      "sha256": "ef27319fe514f33b242436de89b89ca92487fb1f9791cad6fe89dafdcdc6495a"
+    },
+    {
+      "path": "design/compose.yaml",
+      "bytes": 143,
+      "sha256": "345e6d109ae7da2a1f0252cc9ec7ce62e3810f0f2b48ef3ad85926f3a2aeb75e"
+    },
+    {
+      "path": "design/final/RESULT.md",
+      "bytes": 7314,
+      "sha256": "7136d08cbd7aa5d5473bfd908b998e00cfe9def3a10958f82cf7788fe09c23ab"
+    },
+    {
+      "path": "design/final/references/21st.png",
+      "bytes": 135443,
+      "sha256": "0cd6f4cba97fafe7b0c6fc07a21abc0a0e0dc7beb516ccb6ad8ad17a369f3d45"
+    },
+    {
+      "path": "design/final/references/attio-record-0.png",
+      "bytes": 53844,
+      "sha256": "3213b96e52d3c60ad783fde404f8e17c92192c16214f0b49bef9382b4271cf43"
+    },
+    {
+      "path": "design/final/references/attio-record-1.png",
+      "bytes": 73138,
+      "sha256": "55ca94be678d32bacd349ff5572b6ae549cc5ca792de8403e6221bc1b66c6d04"
+    },
+    {
+      "path": "design/final/references/linear-interface-0.png",
+      "bytes": 60218,
+      "sha256": "8d5fddea867d7a43fa4059de5ffea326998afa21d8d113ac043b680058b4b419"
+    },
+    {
+      "path": "design/final/references/linear-interface-1.png",
+      "bytes": 23011,
+      "sha256": "80699e6659c779cffe9f5c3cab40d9cd909e944c8431a83835107c8f3dfb82c4"
+    },
+    {
+      "path": "design/final/references/resend-record-0.png",
+      "bytes": 73520,
+      "sha256": "c03ed0ee49f0ee688e782472991fba7b0a97f0473c6d8b21548154549cf1cc9d"
+    },
+    {
+      "path": "design/final/references/resend-record-1.png",
+      "bytes": 48957,
+      "sha256": "41a4ca166748fb6106c5ee72f2a7eb1d60885d3a30dd6800d098ef46b35ac5f5"
+    },
+    {
+      "path": "design/final/screenshots/application-sent.png",
+      "bytes": 139089,
+      "sha256": "617450883aecde5a7d2caaf84b9566e25fdba79de7cac57efa7b64dda2cfabfe"
+    },
+    {
+      "path": "design/final/screenshots/apply-form-mobile.png",
+      "bytes": 41201,
+      "sha256": "48a81acbecaad1c301439f927c34ad157fc680a4d13078e4df09da14ebd657db"
+    },
+    {
+      "path": "design/final/screenshots/apply-mobile.png",
+      "bytes": 50245,
+      "sha256": "9e86f6b9dc443fa2e2ca44d719cb85e3c19121472e52291c3a0edf9c01618c79"
+    },
+    {
+      "path": "design/final/screenshots/before-cabinet-desktop.png",
+      "bytes": 103589,
+      "sha256": "b3024ecffb627f3659ad957ea4af16cb100dd88ae4cf9725b3855fec1f531cee"
+    },
+    {
+      "path": "design/final/screenshots/before-cabinet-mobile.png",
+      "bytes": 48217,
+      "sha256": "fcf536d5a40e979eba565fa1cc6abbe97a11b2980358ff6e8f8bd2e13b71a595"
+    },
+    {
+      "path": "design/final/screenshots/before-catalog-desktop.png",
+      "bytes": 91646,
+      "sha256": "ee89e4cc1c9c05c010fd38d858740e71de1065947546d012c098163c6578aea2"
+    },
+    {
+      "path": "design/final/screenshots/before-catalog-mobile.png",
+      "bytes": 77559,
+      "sha256": "9bad270fde82357b7ea016b3b217d8905f62b032680cc4c01a2f9c1e44901920"
+    },
+    {
+      "path": "design/final/screenshots/cabinet-1440.png",
+      "bytes": 98959,
+      "sha256": "8aecf562f07fe755ec5226ad1c4154b173b4d6b07e7d0966cf4d26fe3c023180"
+    },
+    {
+      "path": "design/final/screenshots/cabinet-390.png",
+      "bytes": 43925,
+      "sha256": "c14a84a80cf94ae1a1f56b338bea95475c3a4c7ce2ca40ad5785ef6636ab2adf"
+    },
+    {
+      "path": "design/final/screenshots/cabinet-768.png",
+      "bytes": 95306,
+      "sha256": "d391aaa4ffa49ef52f97a1f6e964f34b063ce4e38d10eb523899d195340b99c7"
+    },
+    {
+      "path": "design/final/screenshots/cabinet-before-after.png",
+      "bytes": 180760,
+      "sha256": "071037d1b96f0bf93eae4df6336cf6a87e7d2aa192d7c05c7b9dd5330a73439e"
+    },
+    {
+      "path": "design/final/screenshots/candidate-mobile.png",
+      "bytes": 63774,
+      "sha256": "10810dedd920d59049636446c331e39ba9d98dbe90487561e04f99c2c4288f44"
+    },
+    {
+      "path": "design/final/screenshots/catalog-1440.png",
+      "bytes": 87633,
+      "sha256": "e1d3142dc337643f2dcd8f3d991cf4337b49ef596bb8f3418a8c2f7c412b7861"
+    },
+    {
+      "path": "design/final/screenshots/catalog-390.png",
+      "bytes": 75484,
+      "sha256": "084035770eb6bbd49dd6304f1153003fc07508c14d7f3fc588d9626d311ed083"
+    },
+    {
+      "path": "design/final/screenshots/catalog-768.png",
+      "bytes": 77706,
+      "sha256": "7d0eeaa809e39e65ec30aca844a72376c1fd412ff9c22643031aff3e2d097b6b"
+    },
+    {
+      "path": "design/final/screenshots/catalog-before-after.png",
+      "bytes": 166588,
+      "sha256": "602db4e8fa2a5d04c8cd1bffe1a2399b5453329e6d5cd780efd9deded6f22d48"
+    },
+    {
+      "path": "design/final/screenshots/first-cabinet.png",
+      "bytes": 99088,
+      "sha256": "f146c5e0cdd926bd1e106a0b6e455bcd14c4687e107e3354be8f3bb1829378d1"
+    },
+    {
+      "path": "design/final/screenshots/first-catalog.png",
+      "bytes": 90956,
+      "sha256": "90c479dae9ac12f39d8665b0f5146452750b3989aebda0c0a0e2e033711be39d"
+    },
+    {
+      "path": "design/final/screenshots/invitation-desktop.png",
+      "bytes": 112621,
+      "sha256": "8aa0fc654892958e4a4922e1d50de5bef5130907a9f5ef7ab1f8d1628ebdcbb3"
+    },
+    {
+      "path": "design/final/screenshots/project-desktop.png",
+      "bytes": 129544,
+      "sha256": "572cb0be3bede585fde016a7068b5e70c482b5b41b7e78bca9a40132d60d0841"
+    },
+    {
+      "path": "design/prototypes/.21st/design.json",
+      "bytes": 966,
+      "sha256": "d33c161a016c45cb69d0bf6a483e58ff6cf1a0ec5eff8b0c22766e8a3df9cd82"
+    },
+    {
+      "path": "design/prototypes/Dockerfile",
+      "bytes": 348,
+      "sha256": "2e0883fa55b855305006e6138ed78654b6da305ebd885cb09a387d3c637b4450"
+    },
+    {
+      "path": "design/prototypes/final.html",
+      "bytes": 342,
+      "sha256": "dc614d74d46e50f3da2960551e22cc5a74b9f0b52b1c1c6cf9b3ec5273ddc16c"
+    },
+    {
+      "path": "design/prototypes/index.html",
+      "bytes": 339,
+      "sha256": "5ab1c479993850f5ddddc4b319b62e0e8f572fc41ea9820685c88bd99a835d57"
+    },
+    {
+      "path": "design/prototypes/nginx.conf",
+      "bytes": 165,
+      "sha256": "4ebc4e3ac703246149ab8b1bb6fcecbeabb80c8f1669949c5cf51ccfe48428ae"
+    },
+    {
+      "path": "design/prototypes/package-lock.json",
+      "bytes": 37693,
+      "sha256": "31911d3855d0bef55d2eee145371885eeb1e0e1d818e3927ad48ffadf1ccbbaa"
+    },
+    {
+      "path": "design/prototypes/package.json",
+      "bytes": 429,
+      "sha256": "0b703e7e4f7cf61c98d819870f7bb2f5a2865328e32c2f52e2c7b8968e1288e6"
+    },
+    {
+      "path": "design/prototypes/private.html",
+      "bytes": 344,
+      "sha256": "bb2b6bcfa19fa99ef27bcb8ddd53c684eadb03297a10d80c169ef45bf32b45a9"
+    },
+    {
+      "path": "design/prototypes/public/club-emblem.png",
+      "bytes": 27277,
+      "sha256": "b73377aacba53630141bd5f75ecfd23a2bceabe5d5a032f2941e0d75ab748a39"
+    },
+    {
+      "path": "design/prototypes/public/fonts/Golos-OFL.txt",
+      "bytes": 4393,
+      "sha256": "270e8bfc5b8f26a2ca1433cf4d65d6d93771d2131715a57460702c0df4057c06"
+    },
+    {
+      "path": "design/prototypes/public/fonts/Manrope-OFL.txt",
+      "bytes": 4386,
+      "sha256": "d6a309fcfb963d329a93baf9df66fa5f3c23a4be2b5f67edf24d6cafecde12ac"
+    },
+    {
+      "path": "design/prototypes/public/fonts/golos.ttf",
+      "bytes": 184292,
+      "sha256": "17bb58fb69aec2dfb047a2ebf52534023e9b688c97a6b7ac795b0a72912c2063"
+    },
+    {
+      "path": "design/prototypes/public/fonts/manrope.ttf",
+      "bytes": 164700,
+      "sha256": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6"
+    },
+    {
+      "path": "design/prototypes/public/legal/Untitled-UI-LICENSE.txt",
+      "bytes": 1068,
+      "sha256": "c4b824495f1d48ee0b257606dccdb9b0a442d565ce155fc1eb86f497172534e1"
+    },
+    {
+      "path": "design/prototypes/src/data.ts",
+      "bytes": 5888,
+      "sha256": "3371674af1992378ed3ece3ff8f9d18e37b84eb6e9ed7a46f6274e03036b2c71"
+    },
+    {
+      "path": "design/prototypes/src/final/main.tsx",
+      "bytes": 19431,
+      "sha256": "e9bf1455722c80d6ec5d6c1865278cf1e690c6f750675bc90246815eecca6788"
+    },
+    {
+      "path": "design/prototypes/src/final/primitives.tsx",
+      "bytes": 1858,
+      "sha256": "c10ce635389309d8c0b68b45c4fd9867dca9e1143ccd67db85a0ddaa40723114"
+    },
+    {
+      "path": "design/prototypes/src/final/style.css",
+      "bytes": 17413,
+      "sha256": "ae0ff2b7fec63ed3dea6f339e8b5aaa474c33830b470430af10aa202f564d0c5"
+    },
+    {
+      "path": "design/prototypes/src/main.tsx",
+      "bytes": 15316,
+      "sha256": "dfc4a377defc6b5d916d5f2c0eb8179c9516bc10a11fca5a08ec0ab503058a78"
+    },
+    {
+      "path": "design/prototypes/src/private/main.tsx",
+      "bytes": 19864,
+      "sha256": "76b692e7a8ea0dee0f8df6bdff393721dc5c5e9de46b0a740153470fd2b8eb6c"
+    },
+    {
+      "path": "design/prototypes/src/private/primitives.tsx",
+      "bytes": 1858,
+      "sha256": "c10ce635389309d8c0b68b45c4fd9867dca9e1143ccd67db85a0ddaa40723114"
+    },
+    {
+      "path": "design/prototypes/src/private/style.css",
+      "bytes": 24756,
+      "sha256": "a4b7b0b7bb85657db281aca8e06b5ff85aac18d021372cd94ea810fe97a942df"
+    },
+    {
+      "path": "design/prototypes/src/style.css",
+      "bytes": 19461,
+      "sha256": "9d33dd9dae656cbd204606475266a2eac13a058ae5b19e71982025580d0a8d3c"
+    },
+    {
+      "path": "design/prototypes/tsconfig.json",
+      "bytes": 280,
+      "sha256": "68f0b892a1cba47d6dcdfb034f56fa786d97f13e865f5b503b8ffe6f8b86e0d3"
+    },
+    {
+      "path": "design/prototypes/vite.config.ts",
+      "bytes": 175,
+      "sha256": "1a19ec21d0a978a44d22019932fbb86147f2d01d7868d513cb9b8c20e83ea4ff"
+    },
+    {
+      "path": "design/tokens/tokens.css",
+      "bytes": 704,
+      "sha256": "ec6f83371a8f78c2b2f076901e9cd1bb5f784e3fdfbc3ef7e428d51225dda99e"
+    }
+  ]
+}

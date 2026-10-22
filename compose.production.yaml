@@ -1,0 +1,34 @@
+# Use together with compose.yaml after configuring deploy/server.env and DNS.
+services:
+  db:
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/server.env}
+  api:
+    restart: unless-stopped
+    environment:
+      COOKIE_SECURE: "true"
+      CSRF_SECRET: ${CSRF_SECRET:?Set CSRF_SECRET in deploy/server.env}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN in deploy/server.env}
+      ALLOW_DEMO_LOGIN: "false"
+      SEED_DEMO_ACCOUNTS: "false"
+  web:
+    restart: unless-stopped
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in deploy/server.env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+volumes:
+  caddy_data:
+  caddy_config:

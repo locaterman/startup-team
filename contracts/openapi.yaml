@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Startup Team MVP API
-  version: 0.4.0
+  version: 0.5.0
   description: Prototype contract for the selected 12-feature scope; see docs/IMPLEMENTATION_STATUS.md for verification limits.
 servers:
 - url: /api/v1
@@ -73,6 +73,33 @@ components:
       - bio
       - skills
       additionalProperties: false
+    TelegramLogin:
+      type: object
+      properties:
+        init_data:
+          type: string
+          minLength: 1
+          maxLength: 16384
+      required:
+      - init_data
+      additionalProperties: false
+    AuthConfig:
+      type: object
+      properties:
+        telegram_enabled: &id002
+          type: boolean
+        demo_enabled: *id002
+      required:
+      - telegram_enabled
+      - demo_enabled
+      additionalProperties: false
+    AuthContext:
+      type: object
+      properties:
+        onboarding_required: *id002
+      required:
+      - onboarding_required
+      additionalProperties: false
     Login:
       type: object
       properties:
@@ -117,8 +144,7 @@ components:
           maxLength: 180
         description:
           type: string
-        allow_general_applications: &id002
-          type: boolean
+        allow_general_applications: *id002
       required:
       - title
       additionalProperties: false
@@ -175,6 +201,7 @@ components:
         positions_count:
           type: integer
           minimum: 1
+          maximum: 2147483647
         application_deadline: &id003
           type: string
           format: date-time
@@ -189,6 +216,7 @@ components:
         positions_count:
           type: integer
           minimum: 1
+          maximum: 2147483647
         application_deadline: *id003
       required: []
       additionalProperties: false
@@ -899,6 +927,157 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /auth/telegram:
+    post:
+      operationId: post_auth_telegram
+      tags:
+      - auth
+      summary: Войти через проверенный Telegram initData
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelegramLogin'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: string
+              description: true for replay of an actor-bound stored command result
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Telegram bot token is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: JSON required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Validate HMAC and auth_date, create or find a unique Telegram identity, and issue the existing HttpOnly
+        session. Raw Telegram IDs are not accepted. Reusing launch data in another browser returns 409; an existing bound
+        live session may refresh without creating another session. First profile save with an explicit name completes onboarding.
+  /auth/config:
+    get:
+      operationId: get_auth_config
+      tags:
+      - auth
+      summary: Доступные способы входа
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthConfig'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/context:
+    get:
+      operationId: get_auth_context
+      tags:
+      - auth
+      summary: Первое заполнение профиля
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthContext'
+        '400':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /auth/logout:
     post:
       operationId: post_auth_logout
@@ -1347,6 +1526,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /startups/{startup_id}:
     get:
       operationId: get_startups_startup_id
@@ -1491,6 +1672,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
     delete:
       operationId: delete_startups_startup_id
       tags:
@@ -1564,6 +1747,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /startups/{startup_id}/pause:
     post:
       operationId: post_startups_startup_id_pause
@@ -1647,6 +1832,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /startups/{startup_id}/resume:
     post:
       operationId: post_startups_startup_id_resume
@@ -1730,6 +1917,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /startups/{startup_id}/archive:
     post:
       operationId: post_startups_startup_id_archive
@@ -1813,6 +2002,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /vacancies:
     get:
       operationId: get_vacancies
@@ -2091,6 +2282,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /vacancies/{vacancy_id}/versions:
     post:
       operationId: post_vacancies_vacancy_id_versions
@@ -2180,6 +2373,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
     get:
       operationId: get_vacancies_vacancy_id_versions
       tags:
@@ -2331,6 +2526,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /vacancies/{vacancy_id}/reopen-intake:
     post:
       operationId: post_vacancies_vacancy_id_reopen_intake
@@ -2414,6 +2611,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /vacancies/{vacancy_id}/archive:
     post:
       operationId: post_vacancies_vacancy_id_archive
@@ -2497,6 +2696,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /vacancies/{vacancy_id}/capacity:
     get:
       operationId: get_vacancies_vacancy_id_capacity
@@ -2643,7 +2844,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
       description: positions_count may not be reduced below occupied plus unexpired reserved seats, evaluated inside startup-locked
-        transaction.
+        transaction. Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.
   /applications:
     post:
       operationId: post_applications
@@ -2721,6 +2923,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /applications/mine:
     get:
       operationId: get_applications_mine
@@ -2996,6 +3200,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /applications/{application_id}/restore:
     post:
       operationId: post_applications_application_id_restore
@@ -3079,6 +3285,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /applications/{application_id}/review:
     post:
       operationId: post_applications_application_id_review
@@ -3162,6 +3370,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /applications/{application_id}/reject:
     post:
       operationId: post_applications_application_id_reject
@@ -3251,6 +3461,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /applications/{application_id}/attempts:
     post:
       operationId: post_applications_application_id_attempts
@@ -3340,6 +3552,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
     get:
       operationId: get_applications_application_id_attempts
       tags:
@@ -3568,6 +3782,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /offers/mine:
     get:
       operationId: get_offers_mine
@@ -3773,6 +3989,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /offers/{offer_id}/decline:
     post:
       operationId: post_offers_offer_id_decline
@@ -3856,6 +4074,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /offers/{offer_id}/revoke:
     post:
       operationId: post_offers_offer_id_revoke
@@ -3940,7 +4160,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
       description: Only owner/active recruiter; a recruiter cannot revoke an offer concerning their own candidacy. Candidate
-        accept/decline remain available.
+        accept/decline remain available. Telegram users must complete their profile first (PATCH /users/me with an explicit
+        name); otherwise 403 ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.
   /startups/{startup_id}/members:
     get:
       operationId: get_startups_startup_id_members
@@ -4085,6 +4306,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /startups/{startup_id}/members/{user_id}:
     delete:
       operationId: delete_startups_startup_id_members_user_id
@@ -4163,6 +4386,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /startups/{startup_id}/recruiter-invitations:
     post:
       operationId: post_startups_startup_id_recruiter_invitations
@@ -4252,6 +4477,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
     get:
       operationId: get_startups_startup_id_recruiter_invitations
       tags:
@@ -4318,8 +4545,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-      description: Startup owner only. Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100
-        (default 20). Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.
+      description: Startup owner only. Pending invitations whose expires_at has passed are returned as expired using database
+        time, independent of owner reads or rejected accept commands. Pages use UUID ascending order, signed cursors bound
+        to actor/path/filters, limit 1..100 (default 20). Invalid or mismatched cursors return 422; new rows before the cursor
+        appear on refresh.
   /recruiter-invitations/mine:
     get:
       operationId: get_recruiter_invitations_mine
@@ -4383,8 +4612,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-      description: ' Pages use UUID ascending order, signed cursors bound to actor/path/filters, limit 1..100 (default 20).
-        Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.'
+      description: ' Pending invitations whose expires_at has passed are returned as expired using database time, independent
+        of owner reads or rejected accept commands. Pages use UUID ascending order, signed cursors bound to actor/path/filters,
+        limit 1..100 (default 20). Invalid or mismatched cursors return 422; new rows before the cursor appear on refresh.'
   /recruiter-invitations/{invitation_id}/accept:
     post:
       operationId: post_recruiter_invitations_invitation_id_accept
@@ -4460,6 +4690,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /recruiter-invitations/{invitation_id}/decline:
     post:
       operationId: post_recruiter_invitations_invitation_id_decline
@@ -4535,6 +4767,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /recruiter-invitations/{invitation_id}/revoke:
     post:
       operationId: post_recruiter_invitations_invitation_id_revoke
@@ -4611,7 +4845,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
       description: Only startup owner; only pending invitation can be revoked. Pause allows revocation; archive revokes pending
-        invitations.
+        invitations. Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.
   /startups/{startup_id}/recruiters:
     get:
       operationId: get_startups_startup_id_recruiters
@@ -4759,6 +4994,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /vacancies/{vacancy_id}/tests/current:
     get:
       operationId: get_vacancies_vacancy_id_tests_current
@@ -4973,6 +5210,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /applications/{application_id}/test-submissions:
     get:
       operationId: get_applications_application_id_test_submissions
@@ -5133,7 +5372,8 @@ paths:
                 $ref: '#/components/schemas/Error'
       description: 'Explicit test_version_id is required. Server never silently binds submission to another version. Newer
         critical version causes TEST_VERSION_CONFLICT. Active attempts include offer_pending: a candidate with a pending offer
-        may submit a replacement solution.'
+        may submit a replacement solution. Telegram users must complete their profile first (PATCH /users/me with an explicit
+        name); otherwise 403 ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /test-submissions/{submission_id}:
     patch:
       operationId: patch_test_submissions_submission_id
@@ -5216,7 +5456,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
       description: Only submitted solutions may be reviewed. Superseded or already reviewed submissions return 409 without
-        producing a review event.
+        producing a review event. Telegram users must complete their profile first (PATCH /users/me with an explicit name);
+        otherwise 403 ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.
   /notifications:
     get:
       operationId: get_notifications
@@ -5357,6 +5598,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      description: ' Telegram users must complete their profile first (PATCH /users/me with an explicit name); otherwise 403
+        ONBOARDING_REQUIRED. Auth/profile endpoints and reads remain available; demo accounts are unaffected.'
   /startups/{startup_id}/events:
     get:
       operationId: get_startups_startup_id_events
