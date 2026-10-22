@@ -13,7 +13,7 @@ const vacancy = {
 const mine = (status = "pending") => [
   { vacancy_id: "v-1", applicant_id: "candidate", status },
 ];
-const state = (overrides = {}, applications = [], error = "", busy = false) =>
+const state = (overrides = {}, applications, error = "", busy = false) =>
   getApplyState({ ...vacancy, ...overrides }, "candidate", applications, error, busy, now);
 
 test("new candidate can apply only after existing applications were fetched", () => {
@@ -52,7 +52,7 @@ test("the owner, inactive project, closed vacancy, expired deadline, malformed d
     { application_deadline: "2026-10-22T11:59:59Z" },
     { application_deadline: "not-a-date" },
   ]) {
-    assert.deepEqual(state(change), { kind: "hidden" });
+    assert.deepEqual(state(change, []), { kind: "hidden" });
   }
 });
 
