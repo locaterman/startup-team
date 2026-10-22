@@ -1287,9 +1287,15 @@ function CompleteEmpty({
 type WorkspaceTab =
   "responses" | "vacancies" | "invites" | "team" | "recruiters" | "settings";
 
-function ProjectWorkspace({ project, ctx }: { project: Startup; ctx: Context }) {
+function ProjectWorkspace({
+  project, ctx, tab, setTab,
+}: {
+  project: Startup;
+  ctx: Context;
+  tab: WorkspaceTab;
+  setTab: (value: WorkspaceTab) => void;
+}) {
   const owner = project.owner_id === ctx.user.id;
-  const [tab, setTab] = useState<WorkspaceTab>("responses");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileDetail, setMobileDetail] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
@@ -1497,6 +1503,9 @@ function Cabinet({ ctx }: { ctx: Context }) {
     [ctx.user.id, ctx.revision],
   );
   const [projectId, setProjectId] = useState("");
+  // Keep the selected workspace tab when revision refresh temporarily
+  // unmounts ProjectWorkspace while /startups?scope=managed is loading.
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("responses");
   const selected = managed.data?.find((p) => p.id === projectId) || managed.data?.[0];
 
   return (
@@ -1511,7 +1520,10 @@ function Cabinet({ ctx }: { ctx: Context }) {
             <label className="cw-project-picker">
               <span>Проект</span>
               <select aria-label="Управляемый проект" value={selected.id}
-                onChange={(event) => setProjectId(event.target.value)}>
+                onChange={(event) => {
+                  setProjectId(event.target.value);
+                  setWorkspaceTab("responses");
+                }}>
                 {managed.data?.map((p) => (
                   <option value={p.id} key={p.id}>
                     {p.title} · {labels[p.status] || p.status}
@@ -1535,7 +1547,7 @@ function Cabinet({ ctx }: { ctx: Context }) {
           </button>}
         />
       )}
-      {selected && <ProjectWorkspace key={selected.id} project={selected} ctx={ctx} />}
+      {selected && <ProjectWorkspace key={selected.id} project={selected} ctx={ctx} tab={workspaceTab} setTab={setWorkspaceTab} />}
     </div>
   );
 }
