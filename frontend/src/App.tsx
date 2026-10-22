@@ -428,11 +428,12 @@ export default function App() {
     busy,
   };
   return (
-    <div className={"page" + (tab === "vacancies" || (tab === "projects" && !selected) ? " integrated-design-page" : "")}>
+    <div className={"page" + (tab !== "projects" || !selected ? " integrated-design-page" : "")}>
       <AppHeader
         user={user}
         active={tab}
         busy={busy}
+        revision={revision}
         onNavigate={(section) => {
           setSelected(null);
           setTab(section);
@@ -449,7 +450,7 @@ export default function App() {
           })
         }
       />
-      <main id="app-content" tabIndex={-1} className={"container content" + (tab === "vacancies" || (tab === "projects" && !selected) ? " integrated-content" : "")}>
+      <main id="app-content" tabIndex={-1} className={"container content" + (tab !== "projects" || !selected ? " integrated-content" : "")}>
         {error && !dialog && (
           <div className="banner error" role="alert">
             {error}
@@ -474,9 +475,11 @@ export default function App() {
             <Feed kind="startups" ctx={context} />
           ))}
         {tab === "vacancies" && <Feed kind="vacancies" ctx={context} />}
-        {tab === "cabinet" && (
-          <Cabinet key={user.id} ctx={context} />
-        )}
+        {tab === "cabinet" && <Cabinet key={user.id} ctx={context} />}
+        {tab === "applications" && <ApplicationsScreen key={user.id} ctx={context} />}
+        {tab === "teams" && <TeamsScreen key={user.id} ctx={context} />}
+        {tab === "profile" && <ProfileScreen key={user.id} ctx={context} updateUser={setUser} />}
+        {tab === "notifications" && <NotificationsScreen key={user.id} ctx={context} />}
       </main>
       <footer className="container footer">
         Бизнес-клуб · Startup Team · 2026
