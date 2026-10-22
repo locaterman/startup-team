@@ -51,7 +51,8 @@
 .complete-workspace .cw-tabs {display:flex;gap:24px;overflow-x:auto;border-bottom:1px solid var(--cw-line);scrollbar-width:thin}
 .complete-workspace .cw-tabs button {
   border:0;border-bottom:2px solid transparent;background:transparent;color:var(--cw-muted);
-  min-height:48px;white-space:nowrap;border-radius:0;padding:9px 0;cursor:pointer;font:500 13px Manrope,"Segoe UI",sans-serif
+  flex:0 0 auto;min-width:max-content;min-height:48px;white-space:nowrap;
+  border-radius:0;padding:9px 0;cursor:pointer;font:500 13px Manrope,"Segoe UI",sans-serif
 }
 .complete-workspace .cw-tabs button[aria-selected=true] {color:var(--cw-text);border-bottom-color:var(--cw-accent)}
 .complete-workspace .cw-panel {padding:30px 0 50px;min-height:300px}
