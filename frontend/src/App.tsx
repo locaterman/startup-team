@@ -39,6 +39,7 @@ type Context = {
   showTeams: () => void;
   myApplications?: Application[];
   myApplicationsError: string;
+  retryApplications: () => void;
   busy: boolean;
 };
 const labels: Record<string, string> = {
@@ -99,12 +100,17 @@ function Status({ value }: { value: string }) {
     </span>
   );
 }
-function useData<T>(request: () => Promise<T>, deps: unknown[]) {
+function useData<T>(
+  request: () => Promise<T>,
+  deps: unknown[],
+  keepPreviousOnRefresh = false,
+) {
   const [data, setData] = useState<T>(),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [retryIndex, setRetryIndex] = useState(0);
   useEffect(() => {
     let active = true;
-    setData(undefined);
+    if (!keepPreviousOnRefresh) setData(undefined);
     setError("");
     request()
       .then((value) => {
@@ -117,14 +123,17 @@ function useData<T>(request: () => Promise<T>, deps: unknown[]) {
     return () => {
       active = false;
     };
-  }, deps);
-  return { data, error };
+  }, [...deps, retryIndex]);
+  return { data, error, retry: () => setRetryIndex((index) => index + 1) };
 }
-function DataState({ data, error }: { data: unknown; error: string }) {
+function DataState({
+  data, error, retry,
+}: { data: unknown; error: string; retry?: () => void }) {
   return error ? (
-    <p className="error" role="alert">
+    <div className="error" role="alert">
       Не удалось загрузить: {error}
-    </p>
+      {retry && <button type="button" className="outline" onClick={retry}>Повторить</button>}
+    </div>
   ) : data === undefined ? (
     <p className="muted" role="status">
       Загрузка…
@@ -156,6 +165,7 @@ export default function App() {
     [ready, setReady] = useState(false),
     [tab, setTab] = useState("projects"),
     [sectionHistory, setSectionHistory] = useState<string[]>([]),
+    [detailReturnTab, setDetailReturnTab] = useState<string | null>(null),
     [selected, setSelected] = useState<Startup | null>(null),
     [revision, setRevision] = useState(0),
     [busy, setBusy] = useState(false),
@@ -171,6 +181,7 @@ export default function App() {
   const [onboarding, setOnboarding] = useState(false);
   const initialBootstrapStarted = useRef(false);
   const authRequestInFlight = useRef(false);
+  const dialogDismissRef = useRef<(() => void) | null>(null);
   const refresh = () => setRevision((v) => v + 1);
   // Authentication is not a domain command: success should not create a
   // "Готово" banner or invalidate all application data.
@@ -295,19 +306,27 @@ export default function App() {
       setSectionHistory((trail) => [...trail.slice(-11), tab]);
     }
     setSelected(null);
+    setDetailReturnTab(null);
     setTab(section);
     setError("");
     setNotice("");
   };
+  const closeSelected = () => {
+    setSelected(null);
+    if (detailReturnTab) {
+      setTab(detailReturnTab);
+      setSectionHistory((trail) => trail.slice(0, -1));
+    }
+    setDetailReturnTab(null);
+  };
   const handleNativeBack = () => {
     if (busy) return;
     if (dialog) {
-      setDialog(null);
-      setError("");
+      dialogDismissRef.current?.();
       return;
     }
     if (selected) {
-      setSelected(null);
+      closeSelected();
       return;
     }
     if (sectionHistory.length) {
@@ -383,6 +402,9 @@ export default function App() {
     open: (p) => {
       if (tab !== "projects") {
         setSectionHistory((trail) => [...trail.slice(-11), tab]);
+        setDetailReturnTab(tab);
+      } else {
+        setDetailReturnTab(null);
       }
       setSelected(p);
       setTab("projects");
@@ -392,6 +414,7 @@ export default function App() {
     showTeams: () => navigateSection("teams"),
     myApplications,
     myApplicationsError: ownApplications.error,
+    retryApplications: ownApplications.retry,
     busy,
   };
   return (
@@ -432,7 +455,7 @@ export default function App() {
               key={selected.id}
               startupId={selected.id}
               ctx={context}
-              back={() => setSelected(null)}
+              back={closeSelected}
             />
           ) : (
             <Feed kind="startups" ctx={context} />
@@ -456,6 +479,7 @@ export default function App() {
             setDialog(null);
             setError("");
           }}
+          registerDismiss={(handler) => { dialogDismissRef.current = handler; }}
           submit={(values) =>
             void perform(async () => {
               await dialog.submit(values);
@@ -1003,11 +1027,18 @@ function VacancyView({
               </button>
             </>
           ) : applyState.kind === "loading" || applyState.kind === "error" ? (
-            <button type="button" className="primary vacancy-applied" disabled>
-              {applyState.kind === "error"
-                ? "Не удалось проверить отклик"
-                : "Проверяем статус отклика…"}
-            </button>
+            <>
+              <button type="button" className="primary vacancy-applied" disabled>
+                {applyState.kind === "error"
+                  ? "Не удалось проверить отклик"
+                  : "Проверяем статус отклика…"}
+              </button>
+              {applyState.kind === "error" && (
+                <button type="button" className="outline" onClick={ctx.retryApplications}>
+                  Повторить проверку
+                </button>
+              )}
+            </>
           ) : (
             <button
               type="button"
@@ -1542,6 +1573,7 @@ function Cabinet({ ctx }: { ctx: Context }) {
   const managed = useData(
     () => all<Startup>("/startups?scope=managed"),
     [ctx.user.id, ctx.revision],
+    true,
   );
   const [projectId, setProjectId] = useState("");
   // Keep the selected workspace tab when revision refresh temporarily
