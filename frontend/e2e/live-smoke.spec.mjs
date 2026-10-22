@@ -91,3 +91,16 @@ test("two real demo users: create vacancy, apply once, reload, prevent duplicate
     await candidateContext.close();
   }
 });
+
+test("approved empty applications navigation reaches real catalog and teams", async ({ page }) => {
+  await login(page, "ivan@example.test", "demo-ivan-123");
+  await page.getByRole("button", { name: "Мои отклики", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Мои отклики" })).toBeVisible();
+  const empty = page.locator(".cw-applications-section .cw-empty");
+  await expect(empty.getByRole("heading", { name: "Откликов пока нет" })).toBeVisible();
+  await empty.getByRole("button", { name: "Найти проект" }).click();
+  await expect(page.getByRole("heading", { name: "Стартапы" })).toBeVisible();
+  await page.getByRole("button", { name: "Мои отклики", exact: true }).click();
+  await page.getByRole("button", { name: /Мои команды/ }).last().click();
+  await expect(page.getByRole("heading", { name: "Мои команды" })).toBeVisible();
+});
