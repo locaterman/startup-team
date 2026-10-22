@@ -23,6 +23,7 @@ The original backend review and the complete-design review covered separate impl
 - [x] **7 Playwright Chromium tests passed without retries** against an isolated disposable PostgreSQL/Compose stack: [GitHub Actions run](https://github.com/locaterman/startup-team/actions/runs/39777299638). Includes 12 sequential logins immediately followed by CSRF/profile/context reads, version reset and resubmission, capacity reservations/acceptance, recruiter grants/revocation, old-cookie login and two-account submission. Temporary database deleted.
 - [x] Found and fixed response framing bug: logout emits bodyless 204; pytest and ASGI-log checks pass.
 - [x] FastAPI >=0.121 and `Depends(db, scope="function")` ensure transaction commit precedes response delivery (including session creation). GitHub run above verifies actual behavior.
+- [x] **Complete backend regression suite: 97 passed**, 1 nonblocking StarletteDeprecationWarning, in separately migrated `startup_test_ci` database on the disposable CI stack; 7 Chromium E2E passed without retries afterward. [Verified CI run](https://github.com/locaterman/startup-team/actions/runs/39777958779).
 
 ## P0 — required browser acceptance before merging
 
