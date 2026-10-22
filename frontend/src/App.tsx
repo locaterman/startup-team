@@ -9,7 +9,7 @@ import "./complete-workspace.css";
 import "./complete-records.css";
 import { api, all, setCsrf, dateTime, localDate, instant } from "./api";
 import { AuthScreen, OnboardingScreen } from "./AuthScreen";
-import { telegramApp, type AuthConfig, type AuthContext } from "./telegram";
+import { telegramApp, useTelegramBack, type AuthConfig, type AuthContext } from "./telegram";
 import type {
   Person,
   Startup,
@@ -155,6 +155,7 @@ export default function App() {
   const [user, setUser] = useState<Person | null>(null),
     [ready, setReady] = useState(false),
     [tab, setTab] = useState("projects"),
+    [sectionHistory, setSectionHistory] = useState<string[]>([]),
     [selected, setSelected] = useState<Startup | null>(null),
     [revision, setRevision] = useState(0),
     [busy, setBusy] = useState(false),
@@ -219,6 +220,7 @@ export default function App() {
     setUser(person);
     setTab("projects");
     setSelected(null);
+    setSectionHistory([]);
   };
   const login = async () => {
     await finishLogin(
@@ -257,6 +259,13 @@ export default function App() {
     }
   };
   useEffect(() => {
+    // Only the real Telegram WebView receives native safe-area adjustments.
+    document.documentElement.classList.toggle(
+      "telegram-mini-app", Boolean(telegramApp()?.initData),
+    );
+    return () => document.documentElement.classList.remove("telegram-mini-app");
+  }, []);
+  useEffect(() => {
     // StrictMode runs mount effects twice in development. Do not start a
     // second session/bootstrap request against the same HttpOnly cookie.
     if (initialBootstrapStarted.current) return;
@@ -281,6 +290,44 @@ export default function App() {
     ownApplications.data.revision === revision
       ? ownApplications.data.items
       : undefined;
+  const navigateSection = (section: string) => {
+    if (section !== tab) {
+      setSectionHistory((trail) => [...trail.slice(-11), tab]);
+    }
+    setSelected(null);
+    setTab(section);
+    setError("");
+    setNotice("");
+  };
+  const handleNativeBack = () => {
+    if (busy) return;
+    if (dialog) {
+      setDialog(null);
+      setError("");
+      return;
+    }
+    if (selected) {
+      setSelected(null);
+      return;
+    }
+    if (sectionHistory.length) {
+      const previous = sectionHistory[sectionHistory.length - 1];
+      setSectionHistory((trail) => trail.slice(0, -1));
+      setTab(previous);
+    } else {
+      setTab("projects");
+    }
+    setError("");
+    setNotice("");
+  };
+  // Always call the hook before conditional rendering, including onboarding.
+  useTelegramBack(
+    ready && !!user && !onboarding &&
+      (!!dialog || !!selected || sectionHistory.length > 0 || tab !== "projects"),
+    handleNativeBack,
+    dialog ? 100 : 0,
+  );
+
   if (!ready)
     return (
       <main className="tg-auth">
@@ -334,27 +381,15 @@ export default function App() {
     perform,
     form,
     open: (p) => {
+      if (tab !== "projects") {
+        setSectionHistory((trail) => [...trail.slice(-11), tab]);
+      }
       setSelected(p);
       setTab("projects");
     },
-    showApplications: () => {
-      setSelected(null);
-      setTab("applications");
-      setError("");
-      setNotice("");
-    },
-    showProjects: () => {
-      setSelected(null);
-      setTab("projects");
-      setError("");
-      setNotice("");
-    },
-    showTeams: () => {
-      setSelected(null);
-      setTab("teams");
-      setError("");
-      setNotice("");
-    },
+    showApplications: () => navigateSection("applications"),
+    showProjects: () => navigateSection("projects"),
+    showTeams: () => navigateSection("teams"),
     myApplications,
     myApplicationsError: ownApplications.error,
     busy,
@@ -366,12 +401,7 @@ export default function App() {
         active={tab}
         busy={busy}
         revision={revision}
-        onNavigate={(section) => {
-          setSelected(null);
-          setTab(section);
-          setError("");
-          setNotice("");
-        }}
+        onNavigate={navigateSection}
         onLogout={() =>
           void perform(async () => {
             await api("/auth/logout", "POST");
@@ -379,6 +409,7 @@ export default function App() {
             setUser(null);
             setSelected(null);
             setDialog(null);
+            setSectionHistory([]);
           })
         }
       />
@@ -457,6 +488,11 @@ function Feed({ kind, ctx }: { kind: "startups" | "vacancies"; ctx: Context }) {
   const [showFilters, setShowFilters] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20);
   const [selectedVacancyId, setSelectedVacancyId] = useState<string | null>(null);
+  useTelegramBack(
+    selectedVacancyId !== null,
+    () => setSelectedVacancyId(null),
+    50,
+  );
 
   useEffect(() => {
     setVisibleCount(20);
@@ -1298,6 +1334,11 @@ function ProjectWorkspace({
   const owner = project.owner_id === ctx.user.id;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileDetail, setMobileDetail] = useState(false);
+  useTelegramBack(
+    tab === "responses" && mobileDetail,
+    () => setMobileDetail(false),
+    60,
+  );
   const [statusFilter, setStatusFilter] = useState("");
   const incoming = useData(
     () => all<Application>("/startups/" + project.id + "/applications"),
