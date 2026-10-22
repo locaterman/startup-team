@@ -1,0 +1,32 @@
+name: Frontend integration checks
+
+on:
+  push:
+    branches:
+      - chatgpt/complete-api-integration
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-integration.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+      - name: Test live API and application presentation state
+        working-directory: frontend
+        run: npm test
+      - name: Typecheck and compile frontend
+        working-directory: frontend
+        run: npm run build
