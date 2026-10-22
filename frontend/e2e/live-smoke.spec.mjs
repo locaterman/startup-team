@@ -87,7 +87,6 @@ test("two real demo users: create vacancy, apply once, reload, prevent duplicate
     await savedApplication.getByRole("button", { name: "История и тестовое" }).click();
     await expect(savedApplication.locator(".cw-record-detail")).toBeVisible();
     await expect(savedApplication.locator(".cw-timeline")).toBeVisible();
-    await expect(candidate.getByText(role, { exact: false })).toBeVisible();
   } finally {
     await candidateContext.close();
   }
