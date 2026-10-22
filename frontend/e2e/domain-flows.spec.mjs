@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
+import { mkdirSync } from "node:fs";
 
 const baseURL = process.env.E2E_BASE_URL || "http://127.0.0.1:18086";
 const credentials = {
@@ -8,6 +9,14 @@ const credentials = {
   recruiter: ["alex@example.test", "demo-alex-123"],
 };
 const deadline = () => new Date(Date.now() + 7 * 86400_000).toISOString();
+async function capturePopulated(page, label) {
+  mkdirSync("visual-evidence", { recursive: true });
+  await page.screenshot({
+    path: "visual-evidence/filled-" + label + ".png",
+    fullPage: true,
+    animations: "disabled",
+  });
+}
 const unique = (description) => description + " " + randomUUID().slice(0, 8);
 
 async function actor(browser, kind) {
@@ -98,6 +107,7 @@ test("vacancy reset preserves historical version, then resubmission occurs via o
     await expect(row.getByRole("button", { name: "Новая попытка — через мои отклики" })).toBeDisabled();
     await row.getByRole("button", { name: "Мои отклики", exact: true }).click();
     await expect(candidate.page.getByRole("heading", { name: "Мои отклики" })).toBeVisible();
+    await capturePopulated(candidate.page, "application-reset");
 
     await candidate.page.getByRole("button", { name: "Подать заново" }).click();
     const dialog = candidate.page.getByRole("dialog", { name: "Новая попытка отклика" });
@@ -152,6 +162,7 @@ test("one reserved seat blocks competing offer; acceptance becomes occupied seat
     await expect(a.page.getByRole("heading", { name: "Мои отклики" })).toBeVisible();
     const acceptButton = a.page.getByRole("button", { name: "Принять приглашение" });
     await expect(acceptButton).toBeVisible();
+    await capturePopulated(a.page, "pending-offer");
     await acceptButton.click();
 
     const occupied = await requestAs(owner.page, "GET", "/vacancies/" + vacancy.id + "/capacity");
@@ -236,6 +247,7 @@ test("mobile recruiter workspace switches between candidate list and full detail
     await expect(candidateList).toBeHidden();
     await expect(detail).toBeVisible();
     await expect(detail.getByText("My original application")).toBeVisible();
+    await capturePopulated(owner.page, "mobile-candidate-detail");
     await detail.getByRole("button", { name: "К списку откликов" }).click();
     await expect(candidateList).toBeVisible();
     await expect(detail).toBeHidden();
