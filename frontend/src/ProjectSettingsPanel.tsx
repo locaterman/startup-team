@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Startup } from "./api";
 import "./project-settings.css";
 
@@ -29,12 +29,27 @@ export function ProjectSettingsPanel({
   const [allowGeneral, setAllowGeneral] = useState(project.allow_general_applications);
   const archived = project.status === "archived";
 
+  const lastServerFields = useRef({
+    id: project.id,
+    title: project.title,
+    description: project.description || "",
+    allowGeneral: project.allow_general_applications,
+  });
   useEffect(() => {
-    // Refresh only when the server accepted a new revision or project changed.
-    setTitle(project.title);
-    setDescription(project.description || "");
-    setAllowGeneral(project.allow_general_applications);
-  }, [project.id, project.revision]);
+    // A pause/resume changes the server revision, but must not erase an
+    // unsaved editor draft. Only untouched individual fields follow updates.
+    const previous = lastServerFields.current;
+    const changedProject = previous.id !== project.id;
+    setTitle((value) => changedProject || value === previous.title ? project.title : value);
+    setDescription((value) => changedProject || value === previous.description ? project.description || "" : value);
+    setAllowGeneral((value) => changedProject || value === previous.allowGeneral ? project.allow_general_applications : value);
+    lastServerFields.current = {
+      id: project.id,
+      title: project.title,
+      description: project.description || "",
+      allowGeneral: project.allow_general_applications,
+    };
+  }, [project.id, project.title, project.description, project.allow_general_applications]);
 
   const changed =
     title !== project.title ||
