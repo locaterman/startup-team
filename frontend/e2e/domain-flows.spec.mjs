@@ -18,8 +18,21 @@ async function actor(browser, kind) {
   await expect(page.getByRole("heading", { name: "Добро пожаловать" })).toBeVisible();
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Пароль").fill(password);
+  const authResponse = page.waitForResponse((response) =>
+    response.url().endsWith("/api/v1/auth/login") &&
+    response.request().method() === "POST",
+  );
   await page.getByRole("button", { name: "Войти в демо" }).click();
-  await expect(page.getByRole("navigation", { name: "Основные разделы" })).toBeVisible();
+  const loginResponse = await authResponse;
+  expect(loginResponse.status(), "Login HTTP status for " + kind).toBe(200);
+  try {
+    await expect(page.getByRole("navigation", { name: "Основные разделы" })).toBeVisible();
+  } catch (error) {
+    const visibleText = await page.locator("main").innerText().catch(() => "main unavailable");
+    throw new Error("Login navigation failed for " + kind +
+      " after HTTP " + loginResponse.status() +
+      ". Visible screen: " + visibleText.slice(0, 1300), { cause: error });
+  }
   return { page, context };
 }
 
