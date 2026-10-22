@@ -290,3 +290,16 @@
   .integrated-discovery-search { flex: 1 1 100%; width: 100%; }
   .integrated-discovery-vacancies .vacancy-block .row { flex-direction: column; align-items: stretch; }
 }
+
+/* Keep the approved search/filter/create command bar in one line at desktop
+   sizes. Wrapping is reserved for actual narrow screens. */
+@media (min-width: 1100px) {
+  .integrated-discovery-head { flex-wrap: nowrap; }
+  .integrated-discovery-head > div:first-child { flex: 1 1 auto; min-width: 220px; }
+  .integrated-discovery-actions {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    gap: 12px;
+  }
+  .integrated-discovery-search { width: 260px; }
+}
