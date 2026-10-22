@@ -1,13 +1,18 @@
 name: Frontend integration checks
 
+# The PR is the single source of integration checks. Previously a
+# commit started both push and PR checks, producing duplicate notifications.
 on:
-  push:
-    branches:
-      - chatgpt/complete-api-integration
   pull_request:
     paths:
       - 'frontend/**'
       - '.github/workflows/frontend-integration.yml'
+  workflow_dispatch:
+
+# Superseded PR commits should not leave expensive checks running.
+concurrency:
+  group: frontend-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
