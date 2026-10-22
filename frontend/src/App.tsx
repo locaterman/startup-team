@@ -45,6 +45,9 @@ type Context = {
   perform: (fn: () => Promise<void>) => Promise<void>;
   form: (dialog: Dialog) => void;
   open: (startup: Startup) => void;
+  showApplications: () => void;
+  myApplications?: Application[];
+  myApplicationsError: string;
   busy: boolean;
 };
 const labels: Record<string, string> = {
@@ -398,6 +401,24 @@ export default function App() {
     initialBootstrapStarted.current = true;
     void bootstrap(true);
   }, []);
+  // One request for the whole screen tree; never request once per vacancy.
+  // Identity + revision in the result prevent showing a stale "Apply" action
+  // while the data for a new login or completed command is being refreshed.
+  const ownApplications = useData(
+    () =>
+      user
+        ? all<Application>("/applications/mine").then((items) => ({
+            userId: user.id, revision, items,
+          }))
+        : Promise.resolve({ userId: "", revision, items: [] as Application[] }),
+    [user?.id, revision],
+  );
+  const myApplications =
+    user &&
+    ownApplications.data?.userId === user.id &&
+    ownApplications.data.revision === revision
+      ? ownApplications.data.items
+      : undefined;
   if (!ready)
     return (
       <main className="tg-auth">
@@ -454,6 +475,14 @@ export default function App() {
       setSelected(p);
       setTab("projects");
     },
+    showApplications: () => {
+      setSelected(null);
+      setTab("applications");
+      setError("");
+      setNotice("");
+    },
+    myApplications,
+    myApplicationsError: ownApplications.error,
     busy,
   };
   return (
@@ -1020,6 +1049,8 @@ function VacancyView({
 }) {
   const [expanded, setExpanded] = useState(false);
   const v = initial;
+  const existingApplication =
+    ctx.myApplications?.find((application) => application.vacancy_id === v.id);
   return (
     <article className="panel vacancy-block">
       <div className="row">
@@ -1049,13 +1080,35 @@ function VacancyView({
         v.startup_status === "active" &&
         v.status === "published" &&
         new Date(v.application_deadline) > new Date() && (
-          <button
-            className="primary"
-            disabled={ctx.busy}
-            onClick={() => applicationForm(ctx, "vacancy", v.id)}
-          >
-            Откликнуться
-          </button>
+          <div className="vacancy-apply-actions">
+            {existingApplication ? (
+              <>
+                <button type="button" className="primary vacancy-applied" disabled>
+                  {existingApplication.status === "reset"
+                    ? "Новая попытка — через мои отклики"
+                    : "Отклик уже отправлен"}
+                </button>
+                <button type="button" className="outline" onClick={ctx.showApplications}>
+                  Мои отклики
+                </button>
+              </>
+            ) : ctx.myApplications === undefined ? (
+              <button type="button" className="primary vacancy-applied" disabled>
+                {ctx.myApplicationsError
+                  ? "Не удалось проверить отклик"
+                  : "Проверяем статус отклика…"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="primary"
+                disabled={ctx.busy}
+                onClick={() => applicationForm(ctx, "vacancy", v.id)}
+              >
+                Откликнуться
+              </button>
+            )}
+          </div>
         )}
     </article>
   );
