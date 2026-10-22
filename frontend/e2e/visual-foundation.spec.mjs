@@ -75,6 +75,18 @@ for (const size of sizes) {
       await page.getByRole("button", { name: label, exact: true }).first().click();
       await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
       await checkScreen(page, size.name + "-" + name);
+      if (name === "projects" && size.name === "desktop") {
+        const search = await page.locator(".integrated-discovery-search").boundingBox();
+        const filters = await page.locator(".integrated-discovery-filter-toggle").boundingBox();
+        const create = await page.locator(".integrated-discovery-secondary").boundingBox();
+        expect(search).not.toBeNull();
+        expect(filters).not.toBeNull();
+        expect(create).not.toBeNull();
+        // Approved complete keeps all three desktop catalog controls in
+        // one horizontal command bar. Do not accept a wrapped create button.
+        expect(Math.abs(search.y - create.y)).toBeLessThanOrEqual(4);
+        expect(Math.abs(filters.y - create.y)).toBeLessThanOrEqual(4);
+      }
       if (name === "cabinet") {
         const workspaceTabs = page.getByRole("tablist", { name: "Управление проектом" });
         await expect(workspaceTabs, "Cabinet must render a real project workspace").toBeVisible();
