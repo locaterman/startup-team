@@ -136,7 +136,7 @@ for (const size of sizes) {
       background: getComputedStyle(node).backgroundColor,
       color: getComputedStyle(node).color,
     }));
-    expect(modalColors.background).toBe("rgb(16, 29, 48)");
+    expect(modalColors.background).toBe("rgb(11, 19, 34)");
     expect(modalColors.color).toBe("rgb(238, 242, 248)");
     await checkScreen(page, size.name + "-dialog");
     await dialog.getByRole("button", { name: "Закрыть" }).click();
