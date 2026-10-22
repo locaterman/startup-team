@@ -303,7 +303,32 @@ export default function App() {
     demo_enabled: false,
   });
   const [onboarding, setOnboarding] = useState(false);
+  const initialBootstrapStarted = useRef(false);
+  const authRequestInFlight = useRef(false);
   const refresh = () => setRevision((v) => v + 1);
+  // Authentication is not a domain command: success should not create a
+  // "Готово" banner or invalidate all application data.
+  const authenticate = async (action: () => Promise<void>) => {
+    if (authRequestInFlight.current) return;
+    authRequestInFlight.current = true;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await action();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось выполнить вход");
+    } finally {
+      authRequestInFlight.current = false;
+      setBusy(false);
+    }
+  };
+  // Domain success banners are transient rather than sticky across navigation.
+  useEffect(() => {
+    if (!notice) return;
+    const timeout = window.setTimeout(() => setNotice(""), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
   const perform = async (fn: () => Promise<void>) => {
     setBusy(true);
     setError("");
@@ -343,8 +368,8 @@ export default function App() {
       await api<Person>("/auth/telegram", "POST", { init_data: initData }),
     );
   };
-  const bootstrap = async () => {
-    setReady(false);
+  const bootstrap = async (initial = false) => {
+    if (initial) setReady(false);
     setError("");
     try {
       setAuthConfig(await api<AuthConfig>("/auth/config"));
@@ -367,7 +392,11 @@ export default function App() {
     }
   };
   useEffect(() => {
-    void bootstrap();
+    // StrictMode runs mount effects twice in development. Do not start a
+    // second session/bootstrap request against the same HttpOnly cookie.
+    if (initialBootstrapStarted.current) return;
+    initialBootstrapStarted.current = true;
+    void bootstrap(true);
   }, []);
   if (!ready)
     return (
@@ -388,9 +417,9 @@ export default function App() {
         password={password}
         onEmail={setEmail}
         onPassword={setPassword}
-        onDemo={() => void perform(login)}
-        onTelegram={() => void perform(loginTelegram)}
-        onRetry={() => void perform(bootstrap)}
+        onDemo={() => void authenticate(login)}
+        onTelegram={() => void authenticate(loginTelegram)}
+        onRetry={() => void authenticate(() => bootstrap(false))}
       />
     );
   if (onboarding)
