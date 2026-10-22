@@ -5,6 +5,7 @@ import { getApplyState } from "../src/getApplyState.ts";
 const now = Date.parse("2026-10-22T12:00:00Z");
 const vacancy = {
   id: "v-1",
+  startup_id: "project-1",
   owner_id: "owner",
   startup_status: "active",
   status: "published",
@@ -61,5 +62,22 @@ test("pending mutation blocks new submission, but existing server application ta
   assert.deepEqual(
     state({}, mine("pending"), "", true),
     { kind: "existing", applicationStatus: "pending" },
+  );
+});
+
+
+test("active team member cannot apply to a different role of that startup", () => {
+  assert.deepEqual(
+    getApplyState(vacancy, "candidate", [], "", false, now, new Set(["project-1"])),
+    { kind: "member" },
+  );
+  assert.deepEqual(
+    getApplyState(vacancy, "candidate", [], "", false, now, new Set(["other-project"])),
+    { kind: "available" },
+  );
+  // An existing application's history remains the more specific status.
+  assert.deepEqual(
+    getApplyState(vacancy, "candidate", mine("joined"), "", false, now, new Set(["project-1"])),
+    { kind: "existing", applicationStatus: "joined" },
   );
 });
