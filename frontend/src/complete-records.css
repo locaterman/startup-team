@@ -205,3 +205,26 @@
   .complete-workspace .cw-record-actions .outline,
   .complete-workspace .cw-record-actions .primary { justify-content: flex-start; }
 }
+
+/* Mobile-first candidate detail navigation, matching complete's show-detail UX. */
+.complete-workspace .cw-mobile-back { display: none; }
+@media (max-width: 650px) {
+  .complete-workspace .cw-candidates {
+    display: block;
+    min-height: 0;
+  }
+  .complete-workspace .cw-candidates:not(.cw-show-detail) .cw-candidate-detail {
+    display: none;
+  }
+  .complete-workspace .cw-candidates.cw-show-detail .cw-candidate-list {
+    display: none;
+  }
+  .complete-workspace .cw-mobile-back {
+    display: inline-flex; align-items: center; gap: 9px;
+    min-height: 44px; padding: 8px 0; margin: 0 0 22px;
+    color: var(--cw-accent); font-size: 13px;
+  }
+  .complete-workspace .cw-candidate-detail {
+    padding: 20px 0;
+  }
+}
