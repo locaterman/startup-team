@@ -34,6 +34,8 @@ type Context = {
   form: (dialog: Dialog) => void;
   open: (startup: Startup) => void;
   showApplications: () => void;
+  showProjects: () => void;
+  showTeams: () => void;
   myApplications?: Application[];
   myApplicationsError: string;
   busy: boolean;
@@ -337,6 +339,18 @@ export default function App() {
     showApplications: () => {
       setSelected(null);
       setTab("applications");
+      setError("");
+      setNotice("");
+    },
+    showProjects: () => {
+      setSelected(null);
+      setTab("projects");
+      setError("");
+      setNotice("");
+    },
+    showTeams: () => {
+      setSelected(null);
+      setTab("teams");
       setError("");
       setNotice("");
     },
@@ -1587,26 +1601,44 @@ function ApplicationsScreen({ ctx }: { ctx: Context }) {
     () => all<Invitation>("/recruiter-invitations/mine"), [ctx.user.id, ctx.revision],
   );
   return (
-    <div className="complete-workspace">
+    <div className="complete-workspace cw-applications">
       <div className="cw-heading">
         <div>
           <h1>Мои отклики</h1>
-          <p className="cw-subtitle">Заявки, решения команд, приглашения и история попыток.</p>
+          <p className="cw-subtitle">Решения команд, приглашения и история ваших заявок.</p>
         </div>
+        <button type="button" className="text-button cw-related-link" onClick={ctx.showTeams}>
+          Мои команды →
+        </button>
       </div>
-      <h2 className="cw-list-title">Приглашения в команду</h2>
+      <section className="cw-applications-section cw-applications-first">
+        <h2 className="cw-list-title">Приглашения в команду</h2>
       <DataState {...offers} />
       {offers.data?.map((offer) => (
         <OfferCard key={offer.id} offer={offer} ctx={ctx} manager={false} />
       ))}
-      {offers.data?.length === 0 && <p className="cw-muted">Пока нет приглашений в команду.</p>}
-      <h2 className="cw-list-title">Отправленные отклики</h2>
+      {offers.data?.length === 0 && (
+        <p className="cw-muted">Приглашений пока нет. Когда команда примет решение, оно появится здесь.</p>
+      )}
+      </section>
+      <section className="cw-applications-section">
+        <h2 className="cw-list-title">Отправленные отклики</h2>
       <DataState {...applications} />
       {applications.data?.map((app) => (
         <ApplicationCard key={app.id} application={app} ctx={ctx} manager={false} />
       ))}
-      {applications.data?.length === 0 && <p className="cw-muted">Вы ещё не откликались.</p>}
-      <h2 className="cw-list-title">Приглашения стать рекрутером</h2>
+      {applications.data?.length === 0 && (
+        <CompleteEmpty
+          title="Откликов пока нет"
+          description="Выберите проект и расскажите команде о себе."
+          action={<button type="button" className="cw-button primary" onClick={ctx.showProjects}>
+            Найти проект
+          </button>}
+        />
+      )}
+      </section>
+      <section className="cw-applications-section">
+        <h2 className="cw-list-title">Рекрутерские приглашения</h2>
       <DataState {...invitations} />
       {invitations.data?.map((inv) => (
         <div className="cw-entry" key={inv.id}>
@@ -1627,7 +1659,8 @@ function ApplicationsScreen({ ctx }: { ctx: Context }) {
           )}
         </div>
       ))}
-      {invitations.data?.length === 0 && <p className="cw-muted">Рекрутерских приглашений пока нет.</p>}
+      {invitations.data?.length === 0 && <p className="cw-muted">Новых приглашений нет.</p>}
+      </section>
     </div>
   );
 }
