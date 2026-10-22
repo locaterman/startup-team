@@ -310,3 +310,78 @@ test("approved inline settings save with revision, persist on reload and pause/r
     await owner.context.close();
   }
 });
+
+test("failed inline settings save retains draft and never reports success", async ({ browser }) => {
+  const owner = await actor(browser, "owner");
+  try {
+    const { project } = await createProjectAndVacancy(owner.page);
+    await owner.page.getByRole("button", { name: "Кабинет", exact: true }).click();
+    await owner.page.getByRole("combobox", { name: "Управляемый проект" }).selectOption(project.id);
+    await owner.page.getByRole("tab", { name: "Настройки" }).click();
+
+    const editor = owner.page.locator(".cw-project-settings-editor");
+    const title = editor.getByRole("textbox", { name: "Название *" });
+    const updatedTitle = unique("Retryable draft");
+    await title.fill(updatedTitle);
+
+    let failures = 0;
+    await owner.page.route("**/api/v1/startups/" + project.id, async (route) => {
+      if (route.request().method() === "PATCH" && failures++ === 0) {
+        await route.abort("failed");
+      } else {
+        await route.continue();
+      }
+    });
+    await editor.getByRole("button", { name: "Сохранить" }).click();
+    await expect(owner.page.getByRole("alert")).toBeVisible();
+    await expect(title).toHaveValue(updatedTitle);
+    await expect(owner.page.getByText("Готово", { exact: true })).toHaveCount(0);
+
+    // No write happened on the simulated network failure.
+    const old = await requestAs(owner.page, "GET", "/startups/" + project.id);
+    expect(old.title).toBe(project.title);
+
+    await editor.getByRole("button", { name: "Сохранить" }).click();
+    await expect(owner.page.getByRole("alert")).toHaveCount(0);
+    await expect(editor.getByRole("button", { name: "Сохранить" })).toBeDisabled();
+    const saved = await requestAs(owner.page, "GET", "/startups/" + project.id);
+    expect(saved.title).toBe(updatedTitle);
+  } finally {
+    await owner.context.close();
+  }
+});
+
+test("stale revision conflict retains inline settings draft", async ({ browser }) => {
+  const owner = await actor(browser, "owner");
+  try {
+    const { project } = await createProjectAndVacancy(owner.page);
+    await owner.page.getByRole("button", { name: "Кабинет", exact: true }).click();
+    await owner.page.getByRole("combobox", { name: "Управляемый проект" }).selectOption(project.id);
+    await owner.page.getByRole("tab", { name: "Настройки" }).click();
+
+    const editor = owner.page.locator(".cw-project-settings-editor");
+    const title = editor.getByRole("textbox", { name: "Название *" });
+    const myDraft = unique("Unsaved concurrent draft");
+    await title.fill(myDraft);
+
+    // A second editor commits while this tab still holds project revision 1.
+    const updatedByAnotherEditor = unique("Changed elsewhere");
+    await requestAs(
+      owner.page, "PATCH", "/startups/" + project.id,
+      { title: updatedByAnotherEditor }, 200, project.revision,
+    );
+    await editor.getByRole("button", { name: "Сохранить" }).click();
+
+    const error = owner.page.getByRole("alert");
+    await expect(error).toBeVisible();
+    await expect(error).toContainText(/верси|измен|конфликт|устар/i);
+    await expect(title).toHaveValue(myDraft);
+    await expect(owner.page.getByText("Готово", { exact: true })).toHaveCount(0);
+
+    const persisted = await requestAs(owner.page, "GET", "/startups/" + project.id);
+    expect(persisted.title).toBe(updatedByAnotherEditor);
+    expect(persisted.title).not.toBe(myDraft);
+  } finally {
+    await owner.context.close();
+  }
+});
