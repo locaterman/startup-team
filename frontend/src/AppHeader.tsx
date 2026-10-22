@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 import { all, type Notification, type Person } from "./api";
+import { useTelegramBack } from "./telegram";
 import "./integration-header.css";
 
 export type Section =
@@ -34,6 +35,8 @@ export function AppHeader({
   onLogout: () => void;
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
+  // Dismiss the profile menu before navigating to another screen.
+  useTelegramBack(accountOpen, () => setAccountOpen(false), 70);
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
   useEffect(() => {
     let active = true;
