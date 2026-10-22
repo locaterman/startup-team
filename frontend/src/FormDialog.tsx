@@ -24,28 +24,41 @@ export function FormDialog({
   error,
   close,
   submit,
+  registerDismiss,
 }: {
   dialog: Dialog;
   busy: boolean;
   error: string;
   close: () => void;
   submit: (v: Values) => void;
+  registerDismiss?: (callback: (() => void) | null) => void;
 }) {
   const [values, setValues] = useState<Values>(dialog.values || {});
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const root = useRef<HTMLFormElement>(null);
+  const dirty = dialog.fields.some(
+    (field) => (values[field.name] || "") !== (dialog.values?.[field.name] || ""),
+  );
+  const dismiss = () => {
+    if (busy) return;
+    if (dirty) setConfirmDiscard(true);
+    else close();
+  };
+  useEffect(() => {
+    registerDismiss?.(dismiss);
+    return () => registerDismiss?.(null);
+  }, [registerDismiss, dirty, busy, close]);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     root.current
-      ?.querySelector<HTMLElement>("input,textarea,select,button")
+      ?.querySelector<HTMLElement>("input:not(:disabled),textarea:not(:disabled),select:not(:disabled),button:not(:disabled)")
       ?.focus();
     return () => previous?.focus();
   }, []);
   return (
     <div
       className="modal-cover"
-      onClick={() => {
-        if (!busy) close();
-      }}
+      onClick={dismiss}
     >
       <form
         ref={root}
@@ -55,7 +68,10 @@ export function FormDialog({
         aria-label={dialog.title}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
-          if (e.key === "Escape" && !busy) close();
+          if (e.key === "Escape") {
+            e.preventDefault();
+            dismiss();
+          }
           if (e.key === "Tab") {
             const controls = Array.from(
               root.current?.querySelectorAll<HTMLElement>(
@@ -84,12 +100,25 @@ export function FormDialog({
             type="button"
             aria-label="Закрыть"
             disabled={busy}
-            onClick={close}
+            onClick={dismiss}
           >
             ×
           </button>
         </div>
         {dialog.notice && <p>{dialog.notice}</p>}
+        {confirmDiscard && (
+          <div className="modal-discard-warning" role="alert">
+            <p>Есть несохранённые изменения. Удалить введённый текст?</p>
+            <div className="actions wrap">
+              <button type="button" onClick={() => setConfirmDiscard(false)}>
+                Продолжить редактирование
+              </button>
+              <button type="button" className="outline" onClick={close}>
+                Удалить черновик
+              </button>
+            </div>
+          </div>
+        )}
         {dialog.fields.map((field) => (
           <label key={field.name}>
             {field.label}
