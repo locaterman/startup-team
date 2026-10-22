@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Plus, ArrowLeft, Search, SlidersHorizontal, X } from "lucide-react";
 import { AppHeader } from "./AppHeader";
 import { getApplyState } from "./getApplyState";
-import { FormDialog, type Dialog, type Field, type Values } from "./FormDialog";
+import { FormDialog, type Dialog, type Field } from "./FormDialog";
 import "./discovery.css";
 import "./complete-workspace.css";
 import "./complete-records.css";
