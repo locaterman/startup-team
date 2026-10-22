@@ -3,6 +3,7 @@ import { Plus, ArrowLeft, Search, SlidersHorizontal, X } from "lucide-react";
 import { AppHeader } from "./AppHeader";
 import { getApplyState } from "./getApplyState";
 import { FormDialog, type Dialog, type Field } from "./FormDialog";
+import { ProjectSettingsPanel } from "./ProjectSettingsPanel";
 import "./discovery.css";
 import "./complete-workspace.css";
 import "./complete-records.css";
@@ -1265,36 +1266,6 @@ function openCreateVacancy(ctx: Context, startupId: string) {
   });
 }
 
-function openProjectSettings(ctx: Context, project: Startup) {
-  ctx.form({
-    title: "Настройки проекта",
-    values: {
-      title: project.title,
-      description: project.description,
-      general: String(project.allow_general_applications),
-    },
-    fields: [
-      text("title", "Название", true),
-      area("description", "Описание"),
-      {
-        name: "general",
-        label: "Общие отклики",
-        options: [
-          { value: "true", label: "Разрешены" },
-          { value: "false", label: "Запрещены" },
-        ],
-      },
-    ],
-    submit: async (values) => {
-      await api("/startups/" + project.id, "PATCH", {
-        title: values.title,
-        description: values.description,
-        allow_general_applications: values.general === "true",
-      }, project.revision);
-    },
-  });
-}
-
 function CompleteEmpty({
   title,
   description,
@@ -1489,52 +1460,31 @@ function ProjectWorkspace({ project, ctx }: { project: Startup; ctx: Context }) 
           </>
         )}
         {tab === "settings" && owner && (
-          <div className="cw-settings-layout">
-            <section>
-              <h2>Настройки стартапа</h2>
-              <p>{project.description || "Описание проекта пока не добавлено."}</p>
-              <p>Общие отклики: {project.allow_general_applications ? "разрешены" : "выключены"}</p>
-              {project.status !== "archived" && (
-                <div className="cw-actions">
-                  <button className="cw-button" disabled={ctx.busy} onClick={() => openProjectSettings(ctx, project)}>
-                    Изменить название и условия
-                  </button>
-                  <button
-                    className="cw-button"
-                    disabled={ctx.busy}
-                    onClick={() => void ctx.perform(async () => {
-                      await api(
-                        "/startups/" + project.id + "/" + (project.status === "active" ? "pause" : "resume"),
-                        "POST", undefined, project.revision,
-                      );
-                    })}
-                  >
-                    {project.status === "active" ? "Приостановить" : "Возобновить"}
-                  </button>
-                </div>
-              )}
-            </section>
-            <section>
-              <h2>Архив и история</h2>
-              <p>Архивирование завершает набор. Команда и история сохранятся, вернуть проект из архива нельзя.</p>
-              {project.status !== "archived" && (
-                <button
-                  className="cw-button cw-danger"
-                  disabled={ctx.busy}
-                  onClick={() => ctx.form({
-                    title: "Архивировать проект?",
-                    notice: "Ожидающие приглашения будут отозваны. Восстановление невозможно.",
-                    fields: [],
-                    submit: async () => {
-                      await api("/startups/" + project.id + "/archive", "POST", undefined, project.revision);
-                    },
-                  })}
-                >
-                  Архивировать
-                </button>
-              )}
-            </section>
-          </div>
+          <ProjectSettingsPanel
+            project={project}
+            busy={ctx.busy}
+            onSave={(values) => ctx.perform(async () => {
+              await api("/startups/" + project.id, "PATCH", {
+                title: values.title,
+                description: values.description,
+                allow_general_applications: values.allowGeneral,
+              }, project.revision);
+            })}
+            onPause={() => void ctx.perform(async () => {
+              await api(
+                "/startups/" + project.id + "/" + (project.status === "active" ? "pause" : "resume"),
+                "POST", undefined, project.revision,
+              );
+            })}
+            onArchive={() => ctx.form({
+              title: "Архивировать проект?",
+              notice: "Ожидающие приглашения будут отозваны. Восстановление невозможно.",
+              fields: [],
+              submit: async () => {
+                await api("/startups/" + project.id + "/archive", "POST", undefined, project.revision);
+              },
+            })}
+          />
         )}
       </div>
     </>
