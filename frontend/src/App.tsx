@@ -1055,21 +1055,23 @@ function VacancyView({
     v, ctx.user.id, ctx.myApplications, ctx.myApplicationsError, ctx.busy,
   );
   return (
-    <article className="panel vacancy-block">
-      <div className="row">
-        <div>
-          {projectTitle && <p className="integrated-discovery-vacancy-overline">{projectTitle} · версия {v.current_version}</p>}
+    <article className="cw-vacancy-record panel vacancy-block">
+      <div className="cw-vacancy-heading">
+        <div className="cw-vacancy-copy">
+          {projectTitle && <p className="cw-record-eyebrow">{projectTitle} · версия {v.current_version}</p>}
           <h3>{v.title}</h3>
-          <Status value={v.status} />
-          <p>{v.description}</p>
-          <p className="muted">
-            {v.positions_count} мест · Приём до{" "}
-            {dateTime(v.application_deadline)}
+          <p className="cw-record-preview prewrap">{v.description}</p>
+          <p className="cw-record-role">
+            {v.positions_count} мест · Приём до {dateTime(v.application_deadline)}
           </p>
         </div>
-        <button className="outline" onClick={() => setExpanded(!expanded)}>
-          {expanded ? "Свернуть" : "Подробнее"}
-        </button>
+        <div className="cw-vacancy-controls">
+          <Status value={v.status} />
+          <button className="outline" type="button" aria-expanded={expanded}
+            onClick={() => setExpanded(!expanded)}>
+            {expanded ? "Свернуть" : "Подробнее"}
+          </button>
+        </div>
       </div>
       {expanded && (
         <>
@@ -2463,7 +2465,7 @@ function Recruiters({
     <>
       <DataState {...grants} />
       {grants.data?.map((g) => (
-        <div className="line" key={g.id}>
+        <div className="cw-recruiter-row" key={g.id}>
           <PersonName id={g.user_id} />
           {owner && (
             <button
@@ -2518,7 +2520,7 @@ function Recruiters({
       {found
         ?.filter((p) => p.id !== ctx.user.id)
         .map((person) => (
-          <div className="line" key={person.id}>
+          <div className="cw-recruiter-row" key={person.id}>
             <span>{person.name}</span>
             <button
               className="outline"
@@ -2547,10 +2549,10 @@ function Recruiters({
       {found?.length === 0 && <p className="muted">Участники не найдены.</p>}
       {owner && (
         <>
-          <h4>Отправленные приглашения рекрутеров</h4>
+          <h4 className="cw-recruiter-subheading">Отправленные приглашения рекрутеров</h4>
           <DataState {...invitations} />
           {invitations.data?.map((inv) => (
-            <div className="history-item" key={inv.id}>
+            <div className="cw-recruiter-row cw-recruiter-invite" key={inv.id}>
               <PersonName id={inv.user_id} />
               <p>До {dateTime(inv.expires_at)}</p>
               <Status value={inv.status} />
