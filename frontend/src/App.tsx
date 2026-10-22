@@ -1447,6 +1447,7 @@ function ProjectWorkspace({ project, ctx }: { project: Startup; ctx: Context }) 
   const owner = project.owner_id === ctx.user.id;
   const [tab, setTab] = useState<WorkspaceTab>("responses");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileDetail, setMobileDetail] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
   const incoming = useData(
     () => all<Application>("/startups/" + project.id + "/applications"),
@@ -1476,6 +1477,7 @@ function ProjectWorkspace({ project, ctx }: { project: Startup; ctx: Context }) 
   const changeTab = (value: WorkspaceTab) => {
     setTab(value);
     setSelectedId(null);
+    setMobileDetail(false);
     setStatusFilter("");
   };
 
@@ -1512,7 +1514,7 @@ function ProjectWorkspace({ project, ctx }: { project: Startup; ctx: Context }) 
           <>
             <DataState {...incoming} />
             {incoming.data && incoming.data.length > 0 && (
-              <div className="cw-candidates">
+              <div className={"cw-candidates" + (mobileDetail ? " cw-show-detail" : "")}>
                 <div className="cw-candidate-list" aria-label="Входящие отклики">
                   <select
                     aria-label="Статус отклика"
@@ -1520,6 +1522,7 @@ function ProjectWorkspace({ project, ctx }: { project: Startup; ctx: Context }) 
                     onChange={(event) => {
                       setStatusFilter(event.target.value);
                       setSelectedId(null);
+                      setMobileDetail(false);
                     }}
                   >
                     <option value="">Все отклики</option>
@@ -1533,7 +1536,7 @@ function ProjectWorkspace({ project, ctx }: { project: Startup; ctx: Context }) 
                       className="cw-candidate-button"
                       aria-pressed={selected?.id === app.id}
                       key={app.id}
-                      onClick={() => setSelectedId(app.id)}
+                      onClick={() => { setSelectedId(app.id); setMobileDetail(true); }}
                     >
                       <strong>{app.applicant_name || "Кандидат"}</strong>
                       <span>{app.vacancy_title || "Общий отклик"} · {app.startup_title}</span>
@@ -1545,6 +1548,9 @@ function ProjectWorkspace({ project, ctx }: { project: Startup; ctx: Context }) 
                   )}
                 </div>
                 <div className="cw-candidate-detail" aria-label="Подробности кандидата">
+                  <button type="button" className="cw-mobile-back" onClick={() => setMobileDetail(false)}>
+                    <ArrowLeft size={16} aria-hidden="true" /> К списку откликов
+                  </button>
                   {selected ? (
                     <ApplicationCard key={selected.id} application={selected} ctx={ctx} manager={true} />
                   ) : (
