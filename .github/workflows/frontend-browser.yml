@@ -1,15 +1,19 @@
 name: Isolated browser acceptance
 
+# Browser E2E runs once on the PR (not again for push). Other pushes
+# to superseded commits are cancelled instead of spamming failure emails.
 on:
-  push:
-    branches:
-      - chatgpt/complete-api-integration
+  pull_request:
     paths:
       - 'frontend/**'
       - 'backend/**'
       - 'compose.yaml'
       - '.github/workflows/frontend-browser.yml'
   workflow_dispatch:
+
+concurrency:
+  group: browser-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
