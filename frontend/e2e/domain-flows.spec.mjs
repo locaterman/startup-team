@@ -214,3 +214,33 @@ test("recruiter invitation gives management rights but no membership, revoke rem
     await owner.context.close();
   }
 });
+
+test("mobile recruiter workspace switches between candidate list and full detail", async ({ browser }) => {
+  const owner = await actor(browser, "owner");
+  const candidate = await actor(browser, "candidate");
+  try {
+    const { project, vacancy } = await createProjectAndVacancy(owner.page, 2);
+    await apply(candidate.page, vacancy.id);
+    await owner.page.setViewportSize({ width: 390, height: 844 });
+    await owner.page.reload();
+    await owner.page.getByRole("button", { name: "Кабинет", exact: true }).click();
+    await expect(owner.page.getByRole("heading", { name: "Кабинет" })).toBeVisible();
+    const projectPicker = owner.page.getByRole("combobox", { name: "Управляемый проект" });
+    await projectPicker.selectOption(project.id);
+    await expect(owner.page.getByRole("tablist", { name: "Управление проектом" })).toBeVisible();
+    const candidateList = owner.page.locator(".cw-candidate-list");
+    const detail = owner.page.locator(".cw-candidate-detail");
+    await expect(candidateList).toBeVisible();
+    await expect(detail).toBeHidden();
+    await candidateList.locator(".cw-candidate-button").first().click();
+    await expect(candidateList).toBeHidden();
+    await expect(detail).toBeVisible();
+    await expect(detail.getByText("My original application")).toBeVisible();
+    await detail.getByRole("button", { name: "К списку откликов" }).click();
+    await expect(candidateList).toBeVisible();
+    await expect(detail).toBeHidden();
+  } finally {
+    await candidate.context.close();
+    await owner.context.close();
+  }
+});
