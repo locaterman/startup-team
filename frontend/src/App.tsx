@@ -273,6 +273,22 @@ export default function App() {
     }
   };
   useEffect(() => {
+    const handleExpiredSession = () => {
+      // A real 401 on an authenticated request invalidates the local UI state.
+      // We never silently replay old Telegram initData to log in again.
+      setCsrf("");
+      setUser(null);
+      setOnboarding(false);
+      setSelected(null);
+      setDetailReturnTab(null);
+      setDialog(null);
+      setSectionHistory([]);
+      setError("Сессия завершилась. Войдите снова или откройте Mini App через бота.");
+    };
+    window.addEventListener("startup:auth-required", handleExpiredSession);
+    return () => window.removeEventListener("startup:auth-required", handleExpiredSession);
+  }, []);
+  useEffect(() => {
     // Only the real Telegram WebView receives native safe-area adjustments.
     document.documentElement.classList.toggle(
       "telegram-mini-app", Boolean(telegramApp()?.initData),
@@ -474,6 +490,7 @@ export default function App() {
               startupId={selected.id}
               ctx={context}
               back={closeSelected}
+              backLabel={detailReturnTab ? "Назад" : "Назад к проектам"}
             />
           ) : (
             <Feed kind="startups" ctx={context} />
@@ -785,10 +802,12 @@ function ProjectView({
   startupId,
   ctx,
   back,
+  backLabel,
 }: {
   startupId: string;
   ctx: Context;
   back: () => void;
+  backLabel: string;
 }) {
   const project = useData(
     () => api<Startup>("/startups/" + startupId),
@@ -811,7 +830,7 @@ function ProjectView({
   return (
     <div className="complete-workspace">
       <button className="back" onClick={back}>
-        <ArrowLeft size={16} /> Назад к проектам
+        <ArrowLeft size={16} /> {backLabel}
       </button>
       <DataState {...project} />
       {p && (
@@ -950,7 +969,9 @@ function ProjectView({
                   ) : ctx.myApplications === undefined || ctx.memberStartupIds === undefined ? (
                     <>
                       <button type="button" className="outline" disabled>
-                        Не удалось проверить отклик
+                        {ctx.myApplicationsError || ctx.membershipError
+                          ? "Не удалось проверить отклик"
+                          : "Проверяем статус отклика…"}
                       </button>
                       {(ctx.myApplicationsError || ctx.membershipError) && (
                         <button type="button" className="outline" onClick={() => {
@@ -2475,6 +2496,12 @@ function Recruiters({
   const [query, setQuery] = useState(""),
     [found, setFound] = useState<Person[]>(),
     [error, setError] = useState("");
+  const searchSequence = useRef(0);
+  useEffect(() => {
+    searchSequence.current += 1;
+    setFound(undefined);
+    setError("");
+  }, [startupId]);
   return (
     <>
       <DataState {...grants} />
@@ -2512,10 +2539,17 @@ function Recruiters({
           className="search-form"
           onSubmit={(e) => {
             e.preventDefault();
+            const currentSearch = ++searchSequence.current;
+            setFound(undefined);
             setError("");
             void all<Person>("/users?query=" + encodeURIComponent(query))
-              .then(setFound)
-              .catch((e) => setError(e.message));
+              .then((results) => {
+                if (currentSearch === searchSequence.current) setFound(results);
+              })
+              .catch((e) => {
+                if (currentSearch === searchSequence.current)
+                  setError(e instanceof Error ? e.message : "Ошибка поиска");
+              });
           }}
         >
           <label>
@@ -2524,7 +2558,11 @@ function Recruiters({
               minLength={2}
               required
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                searchSequence.current += 1;
+                setFound(undefined);
+                setQuery(e.target.value);
+              }}
             />
           </label>
           <button className="outline">Найти</button>
