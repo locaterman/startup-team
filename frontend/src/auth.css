@@ -349,3 +349,20 @@
     text-align: left;
   }
 }
+
+/* Clear pending/disabled state, including the password and retry controls. */
+.tg-auth button:disabled {
+  opacity: 1;
+  color: #8796aa !important;
+  background: #293448 !important;
+  border-color: #3b495d !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+.tg-auth button[aria-busy="true"] {
+  opacity: .72;
+  pointer-events: none;
+}
+.tg-auth .tg-error button:disabled {
+  color: #8796aa !important;
+}
