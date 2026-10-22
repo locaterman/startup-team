@@ -1,38 +1,56 @@
-import { useState } from "react";
-import type { Person } from "./api";
+import { useEffect, useState } from "react";
+import { Bell } from "lucide-react";
+import { all, type Notification, type Person } from "./api";
 import "./integration-header.css";
 
-type Section = "projects" | "vacancies" | "cabinet";
+export type Section =
+  "projects" | "vacancies" | "applications" | "cabinet" |
+  "profile" | "notifications" | "teams";
 
 const sections: { id: Section; label: string }[] = [
   { id: "projects", label: "Стартапы" },
   { id: "vacancies", label: "Вакансии" },
-  { id: "cabinet", label: "Мой кабинет" },
+  { id: "applications", label: "Мои отклики" },
+  { id: "cabinet", label: "Кабинет" },
 ];
 
 /**
- * First production slice of the complete design.
- * Navigation uses the existing authenticated app state; it never selects a demo actor.
+ * Shared authenticated header adapted from the final/complete design.
+ * The real session and actor are always owned by the live frontend/backend.
  */
 export function AppHeader({
   user,
   active,
   busy,
+  revision,
   onNavigate,
   onLogout,
 }: {
   user: Person;
   active: string;
   busy: boolean;
+  revision: number;
   onNavigate: (section: Section) => void;
   onLogout: () => void;
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState<number | null>(null);
+  useEffect(() => {
+    let active = true;
+    setUnreadCount(null);
+    all<Notification>("/notifications")
+      .then((items) => {
+        if (active) setUnreadCount(items.filter((item) => !item.read_at).length);
+      })
+      .catch(() => {
+        if (active) setUnreadCount(null);
+      });
+    return () => { active = false; };
+  }, [user.id, revision]);
   const navigate = (section: Section) => {
     setAccountOpen(false);
     onNavigate(section);
   };
-
   return (
     <>
       <a className="integrated-skip-link" href="#app-content">
@@ -66,6 +84,18 @@ export function AppHeader({
           <div className="integrated-account">
             <button
               type="button"
+              className="integrated-notifications"
+              title="Уведомления"
+              aria-label={"Уведомления" + (unreadCount ? ": " + unreadCount + " непрочитанных" : "")}
+              onClick={() => navigate("notifications")}
+              aria-current={active === "notifications" ? "page" : undefined}
+            >
+              <Bell size={19} aria-hidden="true" />
+              {unreadCount !== null && unreadCount > 0 &&
+                <span className="integrated-notification-dot" aria-hidden="true" />}
+            </button>
+            <button
+              type="button"
               className="integrated-account-toggle"
               aria-label={"Профиль: " + user.name}
               aria-expanded={accountOpen}
@@ -74,14 +104,24 @@ export function AppHeader({
             >
               <span className="integrated-account-name">{user.name}</span>
               <span className="integrated-account-initials" aria-hidden="true">
-                {user.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}
+                {user.name.split(/\s+/).filter(Boolean).slice(0, 2)
+                  .map((part) => part[0]?.toUpperCase()).join("")}
               </span>
             </button>
             {accountOpen && (
               <div id="integrated-account-menu" className="integrated-account-menu">
                 <strong>{user.name}</strong>
+                <button type="button" onClick={() => navigate("profile")}>
+                  Мой профиль
+                </button>
+                <button type="button" onClick={() => navigate("teams")}>
+                  Мои команды
+                </button>
                 <button type="button" onClick={() => navigate("cabinet")}>
-                  Мой кабинет
+                  Управление проектами
+                </button>
+                <button type="button" onClick={() => navigate("notifications")}>
+                  Уведомления{unreadCount ? " · " + unreadCount : ""}
                 </button>
                 <button type="button" disabled={busy} onClick={onLogout}>
                   Выйти
