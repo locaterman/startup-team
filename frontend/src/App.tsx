@@ -1951,26 +1951,24 @@ function ApplicationCard({
     [a.id, a.status, ctx.revision],
   );
   return (
-    <article className="history-item">
-      <div className="row">
-        <div>
-          <strong>
-            {a.startup_title} · {a.vacancy_title || "Общий отклик"}
-          </strong>
-          <p>{a.applicant_name}</p>
+    <article className={"cw-record cw-application-record" + (manager ? " cw-manager-record" : "")}>
+      <header className="cw-record-heading">
+        <div className="cw-record-identity">
+          <p className="cw-record-eyebrow">{a.startup_title}</p>
+          <h3>{manager ? a.applicant_name : a.vacancy_title || "Общий отклик"}</h3>
+          {manager && <p className="cw-record-role">{a.vacancy_title || "Общий отклик"}</p>}
+          <p className="cw-record-preview prewrap">{a.message || "Без сопроводительного сообщения"}</p>
         </div>
         <Status value={a.status} />
-      </div>
-      <p className="prewrap">
-        {a.message || "Без сопроводительного сообщения"}
-      </p>
+      </header>
       {a.rejection_reason && (
-        <p>
-          <strong>Причина решения:</strong> {a.rejection_reason}
-        </p>
+        <div className="cw-record-reason">
+          <strong>Причина решения</strong>
+          <p className="prewrap">{a.rejection_reason}</p>
+        </div>
       )}
-      <div className="actions wrap">
-        <button className="outline" onClick={() => setExpanded(!expanded)}>
+      <div className="cw-record-actions actions wrap">
+        <button type="button" className="outline" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
           {expanded ? "Скрыть историю" : "История и тестовое"}
         </button>
         {manager && !own && ["pending", "reviewing"].includes(a.status) && (
@@ -2146,8 +2144,8 @@ function ApplicationDetails({
   );
   const latest = tests.data?.slice().sort((x, y) => y.version - x.version)[0];
   return (
-    <div className="details-body">
-      <h4>Попытки и условия</h4>
+    <div className="cw-record-detail details-body">
+      <section className="cw-record-section"><h4>Попытки и условия</h4>
       <DataState {...attempts} />
       {attempts.data
         ?.sort((x, y) => x.created_at.localeCompare(y.created_at))
@@ -2174,8 +2172,9 @@ function ApplicationDetails({
             )}
           </div>
         ))}
+      </section>
       {a.vacancy_id && (
-        <>
+        <section className="cw-record-section">
           <h4>Тестовое задание и решения</h4>
           <DataState {...tests} />
           {latest ? (
@@ -2259,20 +2258,24 @@ function ApplicationDetails({
               )}
             </div>
           ))}
-        </>
+        </section>
       )}
-      <h4>События</h4>
+      <section className="cw-record-section"><h4>События</h4>
       <DataState {...events} />
-      {events.data
-        ?.sort((x, y) => x.created_at.localeCompare(y.created_at))
-        .map((e) => (
-          <p key={e.id}>
-            {dateTime(e.created_at)} ·{" "}
-            {eventLabels[e.event_type] || "Изменение в проекте"}
-            {e.actor_name ? " · " + e.actor_name : ""}
-            {e.metadata?.reason ? " · " + e.metadata.reason : ""}
-          </p>
-        ))}
+      <ol className="cw-timeline">
+        {events.data
+          ?.slice()
+          .sort((x, y) => x.created_at.localeCompare(y.created_at))
+          .map((e) => (
+            <li key={e.id}>
+              <time dateTime={e.created_at}>{dateTime(e.created_at)}</time>
+              <strong>{eventLabels[e.event_type] || "Изменение в проекте"}</strong>
+              {e.actor_name && <p>{e.actor_name}</p>}
+              {e.metadata?.reason && <p className="prewrap">{e.metadata.reason}</p>}
+            </li>
+          ))}
+      </ol>
+      </section>
     </div>
   );
 }
@@ -2287,19 +2290,17 @@ function OfferCard({
 }) {
   const own = o.candidate_id === ctx.user.id;
   return (
-    <article className="history-item">
-      <div className="row">
-        <strong>
-          {o.startup_title} · {o.vacancy_title || "Общее приглашение"}
-        </strong>
+    <article className="cw-record cw-offer-record">
+      <header className="cw-record-heading">
+        <div className="cw-record-identity">
+          <p className="cw-record-eyebrow">{o.startup_title}</p>
+          <h3>{o.vacancy_title || "Общее приглашение"}</h3>
+          {manager && <p className="cw-record-role">Кандидат: <PersonName id={o.candidate_id} /></p>}
+          <p className="cw-record-preview prewrap">{o.message}</p>
+          <p className="cw-record-role">Ответить до {dateTime(o.expires_at)}</p>
+        </div>
         <Status value={o.status} />
-      </div>
-      {manager && (
-        <p>
-          Кандидат: <PersonName id={o.candidate_id} />
-        </p>
-      )}
-      <p className="prewrap">{o.message}</p>
+      </header>
       {o.vacancy_title && (
         <details>
           <summary>Условия именно этого приглашения</summary>
@@ -2307,9 +2308,8 @@ function OfferCard({
           <p>{o.vacancy_requirements}</p>
         </details>
       )}
-      <p className="muted">Действует до {dateTime(o.expires_at)}</p>
       {o.status === "pending" && (
-        <div className="actions wrap">
+        <div className="cw-record-actions actions wrap">
           {own &&
             ["accept", "decline"].map((action) => (
               <button
@@ -2372,10 +2372,8 @@ function Team({
     <>
       <DataState {...members} />
       {members.data?.map((m) => (
-        <div className="history-item" key={m.id}>
-          <strong>
-            <PersonName id={m.user_id} />
-          </strong>
+        <div className="cw-record cw-member-record" key={m.id}>
+          <h3><PersonName id={m.user_id} /></h3>
           <p>
             Вступление: {dateTime(m.joined_at)}
             {m.left_at ? " · Выход: " + dateTime(m.left_at) : " · В команде"}
