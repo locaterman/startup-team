@@ -5,6 +5,7 @@ export type ApplyState =
   | { kind: "loading" }
   | { kind: "error" }
   | { kind: "existing"; applicationStatus: string }
+  | { kind: "member" }
   | { kind: "busy" }
   | { kind: "available" };
 
@@ -17,12 +18,13 @@ export type ApplyState =
  * a reset, withdraw or reject: the existing attempt/history must be reused.
  */
 export function getApplyState(
-  vacancy: Pick<Vacancy, "id" | "owner_id" | "startup_status" | "status" | "application_deadline">,
+  vacancy: Pick<Vacancy, "id" | "startup_id" | "owner_id" | "startup_status" | "status" | "application_deadline">,
   currentUserId: string,
   applications: ReadonlyArray<Pick<Application, "vacancy_id" | "applicant_id" | "status">> | undefined,
   applicationsError: string,
   busy: boolean,
   now: number = Date.now(),
+  joinedStartupIds: ReadonlySet<string> = new Set(),
 ): ApplyState {
   if (
     vacancy.owner_id === currentUserId ||
@@ -39,6 +41,7 @@ export function getApplyState(
     (app) => app.vacancy_id === vacancy.id && app.applicant_id === currentUserId,
   );
   if (existing) return { kind: "existing", applicationStatus: existing.status };
+  if (joinedStartupIds.has(vacancy.startup_id)) return { kind: "member" };
 
   return busy ? { kind: "busy" } : { kind: "available" };
 }
