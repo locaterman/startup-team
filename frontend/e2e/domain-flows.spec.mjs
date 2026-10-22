@@ -247,6 +247,9 @@ test("mobile recruiter workspace switches between candidate list and full detail
     await expect(candidateList).toBeHidden();
     await expect(detail).toBeVisible();
     await expect(detail.getByText("My original application")).toBeVisible();
+    await expect(detail.getByRole("heading", { name: "О кандидате" })).toBeVisible();
+    await expect(detail.getByRole("heading", { name: "Попытки и условия" })).toBeVisible();
+    await expect(detail.locator(".cw-candidate-facts")).toBeVisible();
     await capturePopulated(owner.page, "mobile-candidate-detail");
     await detail.getByRole("button", { name: "К списку откликов" }).click();
     await expect(candidateList).toBeVisible();
