@@ -78,6 +78,25 @@ for (const size of sizes) {
       if (name === "cabinet") {
         const workspaceTabs = page.getByRole("tablist", { name: "Управление проектом" });
         await expect(workspaceTabs, "Cabinet must render a real project workspace").toBeVisible();
+        const geometry = await workspaceTabs.evaluate((element) => {
+          const items = [...element.querySelectorAll('[role="tab"]')];
+          return {
+            scrollWidth: element.scrollWidth,
+            clientWidth: element.clientWidth,
+            overflowX: getComputedStyle(element).overflowX,
+            rects: items.map((item) => item.getBoundingClientRect().toJSON()),
+          };
+        });
+        for (let i = 1; i < geometry.rects.length; i++) {
+          expect(
+            geometry.rects[i - 1].right,
+            "Adjacent mobile workspace tabs must never overlap",
+          ).toBeLessThanOrEqual(geometry.rects[i].left + 1);
+        }
+        if (size.name === "mobile") {
+          expect(geometry.scrollWidth).toBeGreaterThan(geometry.clientWidth);
+          expect(geometry.overflowX).toBe("auto");
+        }
         for (const [tabName, slug] of [
           ["Отклики", "responses"], ["Вакансии", "vacancies"],
           ["Приглашения", "invites"], ["Команда", "team"],
