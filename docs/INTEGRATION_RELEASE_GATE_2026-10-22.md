@@ -20,16 +20,16 @@ The original backend review and the complete-design review covered separate impl
 - [x] API-client regression tests (cursor paging/cycle protection, credential mode, CSRF, Idempotency-Key, If-Match, session error localization).
 - [x] `frontend/Dockerfile` runs `npm test` before `npm run build`.
 - [x] GitHub Actions runs tests and TypeScript/Vite build: [successful run](https://github.com/locaterman/startup-team/actions/runs/39770048428).
-- [ ] Browser Playwright scenarios are authored in `frontend/e2e/live-smoke.spec.mjs`, **but have not been executed in a running browser**. E2E environment setup is pending.
+- [x] Playwright Chromium E2E on an **isolated disposable PostgreSQL/Compose stack**: three live browser scenarios passed and the database was deleted. Evidence: [GitHub Actions run](https://github.com/locaterman/startup-team/actions/runs/39774204131).
 
 ## P0 — required browser acceptance before merging
 
-- [ ] Clean browser, demo login: config loads, a single login request, `/auth/csrf` and `/auth/context` work; no false success banner.
+- [x] Smoke evidence: fresh Chromium demo login and logout with no false "Готово"; additional single-request/CSRF-specific assertions remain to be implemented.
 - [ ] Expired session: show a correctly translated message where appropriate; "Повторить проверку" restores a valid existing session without spawning another login request; no false "Готово".
 - [ ] Distinct test-host cookies: old `127.0.0.1:18080` and preview `localhost:18086` do not collide. Do not compare two ports on the same hostname when testing independent sessions.
 - [ ] Login with two distinct demo users in isolated browser contexts; names, own applications, managed projects and private notifications never leak between users.
 - [ ] New startup + vacancy are persisted; refresh page, server state remains correct.
-- [ ] Apply once to vacancy: POST succeeds; afterward the Apply button is disabled, indicates "Отклик уже отправлен", and provides "Мои отклики". Reload keeps the disabled state. Repeat is done only via the existing application/attempt flow when the backend allows it.
+- [x] Two-user Chromium flow: owner creates project and vacancy, candidate submits an application, UI disables duplicate Apply, refresh preserves disabled state, and "Мои отклики" shows the application.
 - [ ] Apply command errors, network loss and permission denial: no false success; form retained, retry cannot create duplicates; `Idempotency-Key` semantics maintained.
 - [ ] Attempt history and vacancy versions remain bound to historical conditions; don't infer from the current vacancy.
 - [ ] Candidate review and offer: candidate, owner and recruiter views respect server access control and self-review restrictions.
@@ -38,6 +38,9 @@ The original backend review and the complete-design review covered separate impl
 - [ ] Read/unread notifications belong to the signed-in user; no synthetic target links.
 - [ ] Logout revokes session, clears CSRF/private state and does not show a success banner on the auth screen.
 - [ ] Telegram initData and first-time onboarding are tested on HTTPS in actual Telegram WebView (not inferred from demo login).
+
+
+**Scope note:** passing three smoke tests is not complete P0 acceptance. Telegram, concurrency, full UI parity, historical invariants, denied states and accessibility remain open.
 
 ## P1 — visual and interaction parity
 
