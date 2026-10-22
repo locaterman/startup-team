@@ -21,7 +21,7 @@ Target implementation, selected by user. No AI matching, recommendations or rank
 - Attempts: `pending -> reviewing -> offer_pending -> joined`; branches `rejected`, `withdrawn`, `reset`, `declined`, `already_joined`, `closed`.
 - Applicant withdraws pending or reviewing; may restore only before intake ends. Rejection cannot be independently restored.
 - Restore reconciles submissions of this same attempt with later critical test versions under the startup lock: older solutions become `superseded`, preserving `reviewed_by`/`reviewed_at`. Ordinary changes do not invalidate them; historical attempts and completed hires are unchanged.
-- On major vacancy update, publisher chooses keep or reset; reset cancels unfinished attempts *except those with pending offers*. Resubmission creates new attempt without deleting historical version.
+- On major vacancy update, publisher chooses keep or reset; reset cancels unfinished attempts *except those with pending offers*. Such an offer remains valid under the old terms. If it later expires or is revoked, the protected old attempt becomes `reset` (not `reviewing`) whenever a newer `reset_applications` vacancy version exists. The candidate must resubmit under current terms before another offer. Resubmission creates a new attempt without deleting historical versions.
 - After joining via one offer, close other unfinished attempts to same startup; do not affect other startups.
 - Intake deadline affects **new** applications, not previously submitted applications or pending offers.
 
@@ -32,7 +32,7 @@ Target implementation, selected by user. No AI matching, recommendations or rank
 - Always lock startup record during capacity-affecting operations; process expired pending offers first.
 - One pending offer per candidate per startup; existing old offers are not deleted.
 - Offer can be accepted during startup pause but never after startup archive.
-- Candidate consent and membership creation happen in the same transaction; team membership does not confer recruiter rights.
+- Candidate consent and membership creation happen in the same transaction; acceptance rechecks the deadline in the conditional database UPDATE, including the interval after the initial precheck. Team membership does not confer recruiter rights.
 
 ## Recruiter / team
 - Owner is fixed on startup. Recruiter grants are separate from membership.
@@ -42,7 +42,7 @@ Target implementation, selected by user. No AI matching, recommendations or rank
 ## Test versions
 - Candidate submits HTTPS link bound to a specific immutable test version and application attempt.
 - Pending, reviewing, and offer_pending attempts may submit a solution. An outstanding offer does not prevent replacement after a critical test update; tests remain optional for accepting an offer.
-- `ordinary` update keeps existing work; `critical` marks prior unfinished submissions superseded and requires newer solution for further test-based evaluation. Previously completed hiring is not retroactively changed.
+- `ordinary` update keeps existing work; `critical` marks prior active unfinished submissions superseded and requires newer solution for further test-based evaluation. Withdrawn attempts reconcile on restore, but their previous submissions cannot be reviewed while withdrawn. Reviewing additionally requires a current pending/reviewing/offer_pending attempt, a non-archived startup, and no newer critical test version. Previously completed hiring is not retroactively changed.
 - Tests are optional per vacancy; recruiter may evaluate candidates without them.
 
 ## Cross-record guarantees
@@ -62,8 +62,8 @@ are **coupled** changes, not independent `PATCH` operations.
 | Recruiter sends invite | none → `pending` | `pending|reviewing` → `offer_pending` | Reserve 1 if vacancy-specific |
 | Candidate accepts | `pending` → `accepted` | `offer_pending` → `joined` | Create matching membership; pending reservation becomes occupied |
 | Candidate declines | `pending` → `declined` | `offer_pending` → `declined` | Release reservation; attempt terminal |
-| Recruiter revokes | `pending` → `revoked` | `offer_pending` → `reviewing` (selection active) or `closed` (archived selection) | Release reservation |
-| Clock expiry | `pending` → `expired` | `offer_pending` → `reviewing` (selection active) or `closed` (archived selection) | Release reservation |
+| Recruiter revokes | `pending` → `revoked` | `offer_pending` → `reset` (later vacancy reset), else `reviewing` (selection active), else `closed` (archived selection) | Release reservation |
+| Clock expiry | `pending` → `expired` | `offer_pending` → `reset` (later vacancy reset), else `reviewing` (selection active), else `closed` (archived selection) | Release reservation |
 | Startup archives | `pending` → `revoked` | `offer_pending` → `closed` | Release reservation; keep existing membership history |
 | Candidate joins via another offer | `pending` → `revoked` | `offer_pending` → `already_joined` | Release competing reservations |
 
@@ -80,7 +80,7 @@ future; selection may continue after the intake deadline.
 ## Recruiter invitations
 
 - Owner sends `pending` only while startup `active`.
-- `pending -> accepted` requires matching invitee, not expired, startup `active`.
+- `pending -> accepted` requires matching invitee, not expired at the database UPDATE instant (`expires_at > clock_timestamp()`), startup `active`.
 - `pending -> declined` belongs to invitee; can happen during pause.
 - `pending -> revoked` belongs to startup owner; allowed during pause.
 - `pending -> expired` uses server/database time and is permitted in any startup state.
