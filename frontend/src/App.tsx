@@ -40,6 +40,9 @@ type Context = {
   myApplications?: Application[];
   myApplicationsError: string;
   retryApplications: () => void;
+  memberStartupIds?: ReadonlySet<string>;
+  membershipError: string;
+  retryMemberships: () => void;
   busy: boolean;
 };
 const labels: Record<string, string> = {
@@ -301,6 +304,18 @@ export default function App() {
     ownApplications.data.revision === revision
       ? ownApplications.data.items
       : undefined;
+  const ownMemberships = useData(
+    () => user
+      ? all<Startup>("/startups?scope=member").then((members) => ({
+          userId: user.id, revision, ids: members.map((project) => project.id),
+        }))
+      : Promise.resolve({ userId: "", revision, ids: [] as string[] }),
+    [user?.id, revision],
+  );
+  const memberStartupIds =
+    user && ownMemberships.data?.userId === user.id && ownMemberships.data.revision === revision
+      ? new Set(ownMemberships.data.ids)
+      : undefined;
   const navigateSection = (section: string) => {
     if (section !== tab) {
       setSectionHistory((trail) => [...trail.slice(-11), tab]);
@@ -415,6 +430,9 @@ export default function App() {
     myApplications,
     myApplicationsError: ownApplications.error,
     retryApplications: ownApplications.retry,
+    memberStartupIds,
+    membershipError: ownMemberships.error,
+    retryMemberships: ownMemberships.retry,
     busy,
   };
   return (
@@ -512,6 +530,13 @@ function Feed({ kind, ctx }: { kind: "startups" | "vacancies"; ctx: Context }) {
   const [showFilters, setShowFilters] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20);
   const [selectedVacancyId, setSelectedVacancyId] = useState<string | null>(null);
+  const vacancyDetailRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selectedVacancyId && vacancyDetailRef.current) {
+      vacancyDetailRef.current.scrollIntoView({ block: "start" });
+      vacancyDetailRef.current.focus({ preventScroll: true });
+    }
+  }, [selectedVacancyId]);
   useTelegramBack(
     selectedVacancyId !== null,
     () => setSelectedVacancyId(null),
@@ -659,7 +684,9 @@ function Feed({ kind, ctx }: { kind: "startups" | "vacancies"; ctx: Context }) {
           </button>
         </div>
       )}
-      <DataState data={loaded ? true : undefined} error={loadingError} />
+      <DataState data={loaded ? true : undefined} error={loadingError}
+        retry={() => { projects.retry(); vacancies.retry(); }} />
+      {managed.error && <DataState {...managed} />}
       {loaded && !loadingError && (
         <>
           <p className="integrated-discovery-status" role="status">
@@ -719,7 +746,8 @@ function Feed({ kind, ctx }: { kind: "startups" | "vacancies"; ctx: Context }) {
             </div>
           )}
           {kind === "startups" && selectedVacancy && (
-            <div className="integrated-discovery-detail">
+            <div className="integrated-discovery-detail" ref={vacancyDetailRef}
+              tabIndex={-1} aria-label="Условия выбранной вакансии">
               <button
                 type="button"
                 className="integrated-discovery-secondary"
@@ -777,6 +805,9 @@ function ProjectView({
   const p = project.data;
   const owner = p?.owner_id === ctx.user.id;
   const manage = managed.data?.some((s) => s.id === startupId) || false;
+  const generalApplication = ctx.myApplications?.find((a) =>
+    a.startup_id === startupId && a.vacancy_id === null
+  );
   return (
     <div className="complete-workspace">
       <button className="back" onClick={back}>
@@ -908,12 +939,31 @@ function ProjectView({
               {!owner &&
                 p.status === "active" &&
                 p.allow_general_applications && (
-                  <button
-                    className="primary"
-                    onClick={() => applicationForm(ctx, "startup", p.id)}
-                  >
-                    Общий отклик
-                  </button>
+                  ctx.memberStartupIds?.has(p.id) ? (
+                    <button type="button" className="outline" onClick={ctx.showTeams}>
+                      Вы уже в команде
+                    </button>
+                  ) : generalApplication ? (
+                    <button type="button" className="outline" onClick={ctx.showApplications}>
+                      Мой общий отклик
+                    </button>
+                  ) : ctx.myApplications === undefined || ctx.memberStartupIds === undefined ? (
+                    <>
+                      <button type="button" className="outline" disabled>
+                        Не удалось проверить отклик
+                      </button>
+                      {(ctx.myApplicationsError || ctx.membershipError) && (
+                        <button type="button" className="outline" onClick={() => {
+                          ctx.retryApplications();
+                          ctx.retryMemberships();
+                        }}>Повторить проверку</button>
+                      )}
+                    </>
+                  ) : (
+                    <button className="primary" onClick={() => applicationForm(ctx, "startup", p.id)}>
+                      Общий отклик
+                    </button>
+                  )
                 )}
             </div>
           </div>
@@ -983,9 +1033,12 @@ function VacancyView({
 }) {
   const [expanded, setExpanded] = useState(false);
   const v = initial;
-  const applyState = getApplyState(
-    v, ctx.user.id, ctx.myApplications, ctx.myApplicationsError, ctx.busy,
-  );
+  const applyState = ctx.memberStartupIds === undefined
+    ? { kind: ctx.membershipError ? "error" : "loading" } as const
+    : getApplyState(
+        v, ctx.user.id, ctx.myApplications, ctx.myApplicationsError, ctx.busy,
+        Date.now(), ctx.memberStartupIds,
+      );
   return (
     <article className="cw-vacancy-record panel vacancy-block">
       <div className="cw-vacancy-heading">
@@ -1015,7 +1068,11 @@ function VacancyView({
       )}
       {applyState.kind !== "hidden" && (
         <div className="vacancy-apply-actions">
-          {applyState.kind === "existing" ? (
+          {applyState.kind === "member" ? (
+            <button type="button" className="outline" onClick={ctx.showTeams}>
+              Вы уже в команде
+            </button>
+          ) : applyState.kind === "existing" ? (
             <>
               <button type="button" className="primary vacancy-applied" disabled>
                 {applyState.applicationStatus === "reset"
@@ -1034,7 +1091,10 @@ function VacancyView({
                   : "Проверяем статус отклика…"}
               </button>
               {applyState.kind === "error" && (
-                <button type="button" className="outline" onClick={ctx.retryApplications}>
+                <button type="button" className="outline" onClick={() => {
+                  ctx.retryApplications();
+                  ctx.retryMemberships();
+                }}>
                   Повторить проверку
                 </button>
               )}
