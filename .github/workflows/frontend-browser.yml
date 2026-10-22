@@ -1,0 +1,75 @@
+name: Isolated browser acceptance
+
+on:
+  push:
+    branches:
+      - chatgpt/complete-api-integration
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - 'compose.yaml'
+      - '.github/workflows/frontend-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare ephemeral local-only test configuration
+        run: |
+          umask 077
+          {
+            echo WEB_PORT=18086
+            echo COOKIE_SECURE=false
+            echo ALLOW_DEMO_LOGIN=true
+            echo SEED_DEMO_ACCOUNTS=true
+            printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)"
+            printf 'CSRF_SECRET=%s\n' "$(openssl rand -hex 32)"
+          } > .env
+      - name: Install browser test dependencies
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+      - name: Install headless Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Start separate API, web and database
+        run: docker compose -p startup_team_browser_ci up -d --build
+      - name: Check test stack readiness
+        run: |
+          for i in $(seq 1 45); do
+            if curl -fsS --max-time 5 http://127.0.0.1:18086/healthz; then
+              exit 0
+            fi
+            sleep 3
+          done
+          docker compose -p startup_team_browser_ci ps
+          exit 1
+      - name: Run Chromium multi-account workflows
+        working-directory: frontend
+        env:
+          CI: 'true'
+          E2E_BASE_URL: 'http://127.0.0.1:18086'
+        run: npm run test:e2e
+      - name: Upload failure screenshots and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-failures
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: ignore
+      - name: Show application logs if failing
+        if: failure()
+        run: docker compose -p startup_team_browser_ci logs --tail=100 api web
+      - name: Destroy temporary database and containers
+        if: always()
+        run: docker compose -p startup_team_browser_ci down -v
