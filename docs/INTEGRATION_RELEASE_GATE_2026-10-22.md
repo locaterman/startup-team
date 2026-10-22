@@ -16,6 +16,8 @@ The original backend review and the complete-design review covered separate impl
 
 ## Automated checks now implemented
 
+- [x] 2026-10-22 final security/reliability gate: **99 backend tests, 14 Chromium E2E**, native frontend tests and TypeScript/Vite. Tested two concurrent offers for the final seat, two concurrent accepts of one invitation, save retry after network failure and stale If-Match draft preservation. [Successful disposable CI run](https://github.com/locaterman/startup-team/actions/runs/39806856679).
+
 - [x] Native Node regression tests for `getApplyState` (new, pending, rejected, withdrawn, reset, owner, paused, archived, expired).
 - [x] API-client regression tests (cursor paging/cycle protection, credential mode, CSRF, Idempotency-Key, If-Match, session error localization).
 - [x] `frontend/Dockerfile` runs `npm test` before `npm run build`.
@@ -36,14 +38,14 @@ The original backend review and the complete-design review covered separate impl
 - [ ] Apply command errors, network loss and permission denial: no false success; form retained, retry cannot create duplicates; `Idempotency-Key` semantics maintained.
 - [x] Chromium + real API: original vacancy version retained after reset, new attempt references version 2; both historical versions and resubmission event verified.
 - [ ] Candidate review and offer: candidate, owner and recruiter views respect server access control and self-review restrictions.
-- [x] Sequential full-capacity flow: a pending offer reserves the last place, a second offer is rejected, accepted offer becomes occupied. **Concurrent race** test still outstanding.
+- [x] **Parallel real-PostgreSQL race test**: two simultaneously issued offers for one remaining place result in exactly one 201 and one 409 (`NO_CAPACITY`), one event, one reserved place; acceptance produces exactly one member. Concurrent acceptance of one offer yields exactly one success, with no duplicate membership. [Current 99-backend/14-browser run](https://github.com/locaterman/startup-team/actions/runs/39806856679).
 - [x] Owner-issued recruiter invitation, acceptance, delegated vacancy creation and revoke tested; recruiter grant did not create membership. **Grant revocation of an already-active member** still outstanding.
 - [ ] Read/unread notifications belong to the signed-in user; no synthetic target links.
 - [x] Logout 204 has no body, deletes cookie, and browser returns to auth without success banner; separate backend HTTP framing pytest passes.
 - [ ] Telegram initData and first-time onboarding are tested on HTTPS in actual Telegram WebView (not inferred from demo login).
 
 
-**Scope note:** passing seven browser tests is not complete P0 acceptance. Telegram WebView, true concurrent writes, full UI parity, some denied states and accessibility remain open.
+**Scope note:** 99 backend tests and 14 browser scenarios now pass, including parallel offer/capacity transactions and inline-settings network/conflict errors. Telegram WebView, full visual parity, some denied states and accessibility remain open.
 
 ## Visual integration progress (2026-10-22)
 
@@ -78,7 +80,7 @@ The original backend review and the complete-design review covered separate impl
 
 - [ ] Extract/rewrite remaining working legacy UI components only after their API actions have been preserved and tested.
 - [ ] Remove legacy CSS selectors and obsolete frontend files only when no active references remain; never wholesale-delete the existing auth/API transport.
-- [ ] Rebuild **again** and repeat P0 smoke test after cleanup.
+- [x] Frontend rebuild and smoke suite passed after the latest UI cleanup; updated 99 backend/14 browser tests also passed without Playwright retries.
 - [ ] Independent review of PR diff and test evidence before merge.
 
 ## Build and deployment rule
@@ -93,4 +95,4 @@ The original backend review and the complete-design review covered separate impl
 
 1. Legacy global `frontend/src/style.css` has been deleted and replaced by `frontend/src/app-foundation.css` using approved complete/final dark theme tokens. Reused functional components and screen-specific overrides remain, so full pixel/interaction parity with `complete` **is not yet certified**.
 2. The current implementation still contains working UI logic inside a large `App.tsx` and reuses `ApplicationCard`, `OfferCard`, `VacancyView`, `FormDialog`, `Team` and `Recruiters`. They require scoped migration, not premature deletion.
-3. Chromium E2E and transactional commit tests are now automated, but the scope is still limited. These tests are not a substitute for full visual parity, accessibility, true concurrent capacity checks or Telegram WebView.
+3. Chromium E2E, transaction-commit and real concurrent-capacity tests are automated and passing. These tests are not a substitute for independent full visual parity, accessibility or Telegram WebView checks.
