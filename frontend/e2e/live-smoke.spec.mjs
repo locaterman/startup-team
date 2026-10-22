@@ -26,7 +26,6 @@ test("demo authentication, account page and logout retain correct state", async 
   await login(page, "ivan@example.test", "demo-ivan-123");
   await page.getByRole("button", { name: "Кабинет", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Кабинет" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: /Отклики/ })).toBeVisible().catch(() => {});
   await page.getByRole("button", { name: "Профиль: Ivan Demo" }).click();
   await page.getByRole("button", { name: "Мой профиль" }).click();
   await expect(page.getByRole("heading", { name: "Мой профиль" })).toBeVisible();
