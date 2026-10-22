@@ -91,6 +91,15 @@
   font: inherit;
   font-size: 13px;
 }
+/* Focus belongs to the whole search control, not the inner input.
+   This selector must beat the global input:focus-visible rule; otherwise
+   two nested focus rings appear around the icon and text (reported bug). */
+.integrated-discovery .integrated-discovery-search input:focus-visible {
+  outline: none;
+  outline-offset: 0;
+  box-shadow: none;
+  border: 0;
+}
 .integrated-discovery-search input::placeholder { color: var(--disc-muted); }
 .integrated-discovery-search button {
   border: 0;
