@@ -62,7 +62,7 @@ The original backend review and the complete-design review covered separate impl
 - [x] `VacancyView`, member and recruiter lists use the same dark record hierarchy without replacing real data with prototype localStorage.
 - [x] Forms display in the complete-design right-side full-height drawer, keeping working `FormDialog` inputs, busy/validation, focus trapping and command execution.
 - [x] At mobile width, selecting a candidate opens a separate details view with a back-to-list action; Chromium test added with real project and candidate state.
-- [ ] Latest complete browser/backend CI green status and screenshot inspection after all revisions (pending at time of writing).
+- [x] Latest isolated acceptance completed: **97 backend tests and 10 Chromium E2E tests**, including populated mobile candidate navigation, version reset/resubmission and offer acceptance; visual evidence artifact contains the populated applications, offers and candidate-detail views. [CI run](https://github.com/locaterman/startup-team/actions/runs/39785055577).
 - [ ] Strict visual parity with the approved prototype across all populated workflows, combined error/conflict/empty states and responsive detail navigation. Further independent design review required.
 - [ ] Component extraction from monolithic `App.tsx` and removal of old, now-unused helper markup without losing API behavior.
 
