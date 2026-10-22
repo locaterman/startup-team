@@ -301,6 +301,9 @@ test("approved inline settings save with revision, persist on reload and pause/r
     const paused = await requestAs(owner.page, "GET", "/startups/" + project.id);
     expect(paused.status).toBe("paused");
     await owner.page.getByRole("button", { name: "Возобновить набор" }).click();
+    // Click dispatches an async command; wait for the UI to receive the
+    // server-confirmed new revision before asserting the persisted state.
+    await expect(owner.page.getByRole("button", { name: "Приостановить набор" })).toBeVisible();
     const active = await requestAs(owner.page, "GET", "/startups/" + project.id);
     expect(active.status).toBe("active");
   } finally {
