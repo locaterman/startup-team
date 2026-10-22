@@ -37,11 +37,12 @@ The reference seed and live backend contain different projects, applications and
 
 ## Required before PR acceptance
 
-- [ ] Latest complete branch run: unit + TypeScript/Vite + **97 backend pytest** + all Chromium E2E scenarios pass **without retries**, including inline settings persistence, no false login banner, cross-account permissions, history and mobile candidate details.
+- [x] Latest integration run: frontend unit + TypeScript/Vite, **99 backend tests and 14 Chromium E2E without retries** including historic conditions, inline settings, authentication, concurrency and mobile candidate details. [Run #39806856679](https://github.com/locaterman/startup-team/actions/runs/39806856679).
 - [ ] Review **new** screenshots for actual catalog toolbar, empty applications, inline settings and populated candidate inspector at 1365px/390px against reference. Previous screenshots alone do not validate new code.
 - [ ] Verify keyboard navigation, focus trapping/restoration and contrast; automated smoke checks are not an accessibility audit.
-- [ ] Test stale revision/conflict and errors in inline settings (HTTP 409/412) and ensure editable form contents are not silently lost.
+- [x] Browser E2E: simulated failed PATCH preserves input without a false success; retry saves it. Stale If-Match returns conflict without overwriting the newer server record or losing the unsaved draft.
 - [ ] Verify Telegram WebView + HTTPS and prevent demo auth in production.
-- [ ] Test true concurrent capacity racing and independently review PR; then merge/deploy only after explicit acceptance.
+- [x] Parallel PostgreSQL test: simultaneous offer creation for one remaining seat and simultaneous acceptance of the same offer never create extra offers, accepted members or events.
+- [ ] Independent PR review and explicit release acceptance are still required before merge or deployment.
 
 **Protection:** original `main`, the Debian home server and its PostgreSQL volume must remain unchanged until release is accepted.
