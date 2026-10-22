@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { mkdirSync } from "node:fs";
 
 const views = [
   ["Стартапы", "projects"],
@@ -25,7 +26,7 @@ async function login(page) {
   await expect(page.getByRole("navigation", { name: "Основные разделы" })).toBeVisible();
 }
 
-async function checkScreen(page, testInfo, label) {
+async function checkScreen(page, label) {
   const evaluated = await page.evaluate(() => {
     const css = getComputedStyle(document.body);
     const root = getComputedStyle(document.documentElement);
@@ -52,9 +53,12 @@ async function checkScreen(page, testInfo, label) {
     expect(element.background, label + " old white card").not.toBe("rgb(255, 255, 255)");
     expect(element.color, label + " old dark-on-light text").not.toBe("rgb(19, 33, 49)");
   }
-  await testInfo.attach(label + ".png", {
-    body: await page.screenshot({ fullPage: true, animations: "disabled" }),
-    contentType: "image/png",
+  // Playwright may prune successful test-results. Persist evidence separately.
+  mkdirSync("visual-evidence", { recursive: true });
+  await page.screenshot({
+    path: "visual-evidence/" + label + ".png",
+    fullPage: true,
+    animations: "disabled",
   });
 }
 
@@ -65,7 +69,7 @@ for (const size of sizes) {
     for (const [label, name] of views) {
       await page.getByRole("button", { name: label, exact: true }).first().click();
       await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
-      await checkScreen(page, testInfo, size.name + "-" + name);
+      await checkScreen(page, size.name + "-" + name);
     }
     for (const [label, name] of accountViews) {
       if (label === "Уведомления") {
@@ -75,7 +79,7 @@ for (const size of sizes) {
         await page.getByRole("button", { name: label, exact: true }).click();
       }
       await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
-      await checkScreen(page, testInfo, size.name + "-" + name);
+      await checkScreen(page, size.name + "-" + name);
     }
     await page.getByRole("button", { name: "Кабинет", exact: true }).first().click();
     await page.getByRole("button", { name: "Новый проект" }).click();
@@ -87,7 +91,7 @@ for (const size of sizes) {
     }));
     expect(modalColors.background).toBe("rgb(16, 29, 48)");
     expect(modalColors.color).toBe("rgb(238, 242, 248)");
-    await checkScreen(page, testInfo, size.name + "-dialog");
+    await checkScreen(page, size.name + "-dialog");
     await dialog.getByRole("button", { name: "Закрыть" }).click();
     await expect(dialog).toBeHidden();
   });
