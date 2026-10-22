@@ -45,6 +45,16 @@ The original backend review and the complete-design review covered separate impl
 
 **Scope note:** passing seven browser tests is not complete P0 acceptance. Telegram WebView, true concurrent writes, full UI parity, some denied states and accessibility remain open.
 
+## Visual integration progress (2026-10-22)
+
+- [x] Physically deleted unused old white-and-green `frontend/src/style.css`, replaced with `app-foundation.css` based on approved `final/complete` colors and font.
+- [x] API-backed project review workspace updated to approved side-list + detail-panel layout.
+- [x] Desktop 1365px and mobile 390px visual foundation tests passed (9 total browser E2E, with 97 backend tests) after old stylesheet removal: [successful run](https://github.com/locaterman/startup-team/actions/runs/39779895275).
+- [x] GitHub Actions saves screenshot evidence under `complete-design-visual-evidence` artifact for every visible section and dialog.
+- [x] Screenshots inspected: discovered real overlapping workspace tabs at 390px; fixed with non-shrinking horizontal-scroll tabs and added geometric non-overlap assertion. Final CI rerun required.
+- [ ] Independent side-by-side screenshot review against complete prototype, including all empty/error/status states and mobile-specific detail navigation.
+- [ ] Rework the still-active older components into approved full layout where screenshot differences remain (without deleting domain actions).
+
 ## P1 — visual and interaction parity
 
 - [ ] Compare screens to `design/prototypes/src/complete/` at desktop and 390px width: catalog, vacancies, project detail, workspace (all tabs), personal applications, teams, profile, notifications and modals.
@@ -70,6 +80,6 @@ The original backend review and the complete-design review covered separate impl
 
 ## Known remaining risks
 
-1. Legacy global `frontend/src/style.css` is still imported; dark theme is partly a scoped override. Consequently "complete" visual parity **is not complete**.
+1. Legacy global `frontend/src/style.css` has been deleted and replaced by `frontend/src/app-foundation.css` using approved complete/final dark theme tokens. Reused functional components and screen-specific overrides remain, so full pixel/interaction parity with `complete` **is not yet certified**.
 2. The current implementation still contains working UI logic inside a large `App.tsx` and reuses `ApplicationCard`, `OfferCard`, `VacancyView`, `FormDialog`, `Team` and `Recruiters`. They require scoped migration, not premature deletion.
 3. Chromium E2E and transactional commit tests are now automated, but the scope is still limited. These tests are not a substitute for full visual parity, accessibility, true concurrent capacity checks or Telegram WebView.
