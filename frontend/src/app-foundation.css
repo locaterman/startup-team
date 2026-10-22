@@ -188,3 +188,45 @@ summary { cursor: pointer; color: var(--accent); font-weight: 550; }
   .line { align-items: flex-start; }
   .search-form input { min-width: 0; width: 100%; }
 }
+
+/* Telegram's own chrome is outside the WebView; inset variables describe the
+   remaining *content* safe area. Apply only in a signed-launch Mini App, never
+   to the normal site. Use max(), not a sum, to avoid double-padding. */
+.telegram-mini-app .integrated-header {
+  padding-top: max(env(safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, 0px));
+}
+.telegram-mini-app .integrated-header-inner,
+.telegram-mini-app .integrated-design-page .integrated-content,
+.telegram-mini-app .integrated-design-page .footer {
+  padding-left: max(18px, env(safe-area-inset-left, 0px), var(--tg-content-safe-area-inset-left, 0px));
+  padding-right: max(18px, env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px));
+}
+.telegram-mini-app .integrated-design-page .footer {
+  padding-bottom: max(30px, env(safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px));
+}
+.telegram-mini-app .tg-auth {
+  padding-top: max(env(safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, 0px));
+  padding-bottom: max(18px, env(safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px));
+  padding-left: max(20px, env(safe-area-inset-left, 0px), var(--tg-content-safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px));
+}
+.telegram-mini-app .modal-cover {
+  padding: max(12px, env(safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, 0px))
+           max(12px, env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px))
+           max(12px, env(safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px))
+           max(12px, env(safe-area-inset-left, 0px), var(--tg-content-safe-area-inset-left, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.telegram-mini-app .modal {
+  max-height: min(calc(100dvh - 24px), var(--tg-viewport-height, 100dvh));
+  overscroll-behavior: contain;
+}
+@media (max-width: 650px) {
+  /* Avoid iOS WebView autofocus zoom when an input receives focus. */
+  .telegram-mini-app input:not([type="checkbox"]),
+  .telegram-mini-app textarea,
+  .telegram-mini-app select {
+    font-size: 16px;
+  }
+}
