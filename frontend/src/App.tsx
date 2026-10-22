@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Rocket, Plus, ArrowLeft } from "lucide-react";
+import { Plus, ArrowLeft, Search, SlidersHorizontal, X } from "lucide-react";
 import { AppHeader } from "./AppHeader";
+import "./discovery.css";
 import { api, all, setCsrf, dateTime, localDate, instant } from "./api";
 import { AuthScreen, OnboardingScreen } from "./AuthScreen";
 import { telegramApp, type AuthConfig, type AuthContext } from "./telegram";
@@ -19,7 +20,6 @@ import type {
   Grant,
   Notification,
   Capacity,
-  Page,
 } from "./api";
 
 type Field = {
@@ -427,7 +427,7 @@ export default function App() {
     busy,
   };
   return (
-    <div className="page">
+    <div className={"page" + (tab === "vacancies" || (tab === "projects" && !selected) ? " integrated-design-page" : "")}>
       <AppHeader
         user={user}
         active={tab}
@@ -448,7 +448,7 @@ export default function App() {
           })
         }
       />
-      <main id="app-content" tabIndex={-1} className="container content">
+      <main id="app-content" tabIndex={-1} className={"container content" + (tab === "vacancies" || (tab === "projects" && !selected) ? " integrated-content" : "")}>
         {error && !dialog && (
           <div className="banner error" role="alert">
             {error}
@@ -501,125 +501,262 @@ export default function App() {
   );
 }
 function Feed({ kind, ctx }: { kind: "startups" | "vacancies"; ctx: Context }) {
+  // Fetch every authorized page before applying client-side search and filters.
+  // Filtering just the first backend page would silently hide matching records.
+  const projects = useData(
+    () => all<Startup>("/startups?scope=public"),
+    [ctx.user.id, ctx.revision],
+  );
+  const vacancies = useData(
+    () => all<Vacancy>("/vacancies"),
+    [ctx.user.id, ctx.revision],
+  );
   const managed = useData(
     () => all<Startup>("/startups?scope=managed"),
     [ctx.user.id, ctx.revision],
   );
-  const [page, setPage] = useState<Page<Startup | Vacancy>>(),
-    [error, setError] = useState(""),
-    [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [onlyOpen, setOnlyOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(20);
+  const [selectedVacancyId, setSelectedVacancyId] = useState<string | null>(null);
+
   useEffect(() => {
-    let active = true;
-    setPage(undefined);
-    setError("");
-    api<Page<Startup | Vacancy>>("/" + kind)
-      .then((r) => {
-        if (active) setPage(r);
-      })
-      .catch((e) => {
-        if (active) setError(e.message);
-      });
-    return () => {
-      active = false;
-    };
-  }, [kind, ctx.revision, ctx.user.id]);
-  const more = async () => {
-    if (!page?.next_cursor) return;
-    setLoading(true);
-    try {
-      const next = await api<Page<Startup | Vacancy>>(
-        "/" + kind + "?cursor=" + encodeURIComponent(page.next_cursor),
-      );
-      setPage({
-        items: [...page.items, ...next.items],
-        next_cursor: next.next_cursor,
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Ошибка страницы");
-    } finally {
-      setLoading(false);
-    }
+    setVisibleCount(20);
+    setSelectedVacancyId(null);
+  }, [kind, query, roleFilter, onlyOpen, ctx.user.id]);
+
+  const loadingError = projects.error || vacancies.error;
+  const loaded = projects.data !== undefined && vacancies.data !== undefined;
+  const allProjects = projects.data || [];
+  const allVacancies = vacancies.data || [];
+  const now = Date.now();
+  const isOpen = (v: Vacancy) =>
+    v.startup_status === "active" &&
+    v.status === "published" &&
+    new Date(v.application_deadline).getTime() > now;
+  const openVacancies = allVacancies.filter(isOpen);
+  const normalizedQuery = query.trim().toLocaleLowerCase("ru-RU");
+  const contains = (value: string | null | undefined) =>
+    (value || "").toLocaleLowerCase("ru-RU").includes(normalizedQuery);
+  const roleOptions = Array.from(new Set(openVacancies.map((v) => v.title)))
+    .sort((a, b) => a.localeCompare(b, "ru-RU"));
+
+  const projectVacancies = (projectId: string) =>
+    openVacancies.filter((v) => v.startup_id === projectId);
+  const filteredProjects = allProjects.filter((p) => {
+    const roles = projectVacancies(p.id);
+    const matchingText =
+      !normalizedQuery ||
+      contains(p.title) ||
+      contains(p.description) ||
+      roles.some((v) => contains(v.title) || contains(v.requirements));
+    return matchingText &&
+      (!roleFilter || roles.some((v) => v.title === roleFilter)) &&
+      (!onlyOpen || roles.length > 0);
+  });
+  const filteredVacancies = allVacancies.filter((v) =>
+    (!normalizedQuery ||
+      contains(v.title) ||
+      contains(v.description) ||
+      contains(v.requirements) ||
+      contains(allProjects.find((p) => p.id === v.startup_id)?.title)) &&
+    (!roleFilter || v.title === roleFilter) &&
+    (!onlyOpen || isOpen(v)),
+  );
+  const currentItems = kind === "startups" ? filteredProjects : filteredVacancies;
+  const currentVisible = currentItems.slice(0, visibleCount);
+  const selectedVacancy = selectedVacancyId
+    ? allVacancies.find((v) => v.id === selectedVacancyId)
+    : undefined;
+  const canManage = (startupId: string) =>
+    (managed.data || []).some((p) => p.id === startupId);
+  const resetFilters = () => {
+    setQuery("");
+    setRoleFilter("");
+    setOnlyOpen(false);
   };
+
   return (
-    <>
-      <div className="pagehead">
+    <section className="integrated-discovery" aria-label={kind === "startups" ? "Каталог проектов" : "Каталог вакансий"}>
+      <div className="integrated-discovery-head">
         <div>
-          <div className="eyebrow">Сообщество / Возможности</div>
-          <h1>
-            {kind === "startups" ? "Найди свой проект." : "Найди свою роль."}
-          </h1>
-          <p>Публикации участников Бизнес-клуба.</p>
+          <h1>{kind === "startups" ? "Стартапы" : "Вакансии"}</h1>
+          <p className="integrated-discovery-description">
+            {kind === "startups"
+              ? "Проекты участников Бизнес-клуба и открытые роли."
+              : "Найдите роль и откликнитесь на актуальную вакансию."}
+          </p>
         </div>
-        {kind === "startups" && (
-          <button
-            className="primary"
-            disabled={ctx.busy}
-            onClick={() =>
-              ctx.form({
-                title: "Новый стартап",
-                fields: [
-                  text("title", "Название", true),
-                  area("description", "Описание"),
-                ],
-                submit: async (values) => {
-                  await api("/startups", "POST", {
-                    ...values,
-                    allow_general_applications: true,
-                  });
-                },
-              })
-            }
-          >
-            <Plus size={18} /> Создать стартап
-          </button>
-        )}
-      </div>
-      <DataState data={page} error={error} />
-      {page && (
-        <>
-          <div className={kind === "startups" ? "cards" : "vacancy-list"}>
-            {page.items.map((item) =>
-              kind === "startups" ? (
-                <article className="project-card" key={item.id}>
-                  <Rocket />
-                  <h3>{item.title}</h3>
-                  <p>{item.description || "Описание пока не добавлено"}</p>
-                  <button
-                    className="outline"
-                    onClick={() => ctx.open(item as Startup)}
-                  >
-                    Подробнее
-                  </button>
-                </article>
-              ) : (
-                <VacancyView
-                  key={item.id}
-                  initial={item as Vacancy}
-                  ctx={ctx}
-                  manage={
-                    managed.data?.some(
-                      (p) => p.id === (item as Vacancy).startup_id,
-                    ) || false
-                  }
-                />
-              ),
+        <div className="integrated-discovery-actions">
+          <label className="integrated-discovery-search">
+            <Search size={18} aria-hidden="true" />
+            <input
+              aria-label="Поиск проекта или роли"
+              placeholder="Проект или роль"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            {query && (
+              <button type="button" aria-label="Очистить поиск" onClick={() => setQuery("")}>
+                <X size={16} />
+              </button>
             )}
-          </div>
-          {!page.items.length && <p className="empty">Публикаций пока нет.</p>}
-          {page.next_cursor && (
+          </label>
+          <button
+            type="button"
+            className="integrated-discovery-filter-toggle"
+            aria-expanded={showFilters}
+            aria-controls="integrated-discovery-filters"
+            onClick={() => setShowFilters((v) => !v)}
+          >
+            <SlidersHorizontal size={17} aria-hidden="true" /> Фильтры
+          </button>
+          {kind === "startups" && (
             <button
-              className="outline more"
-              disabled={loading}
-              onClick={() => void more()}
+              type="button"
+              className="integrated-discovery-secondary"
+              disabled={ctx.busy}
+              onClick={() =>
+                ctx.form({
+                  title: "Новый стартап",
+                  fields: [
+                    text("title", "Название", true),
+                    area("description", "Описание"),
+                  ],
+                  submit: async (values) => {
+                    await api("/startups", "POST", {
+                      ...values,
+                      allow_general_applications: true,
+                    });
+                  },
+                })
+              }
             >
-              {loading ? "Загрузка…" : "Показать ещё"}
+              <Plus size={17} aria-hidden="true" /> Создать проект
+            </button>
+          )}
+        </div>
+      </div>
+      {showFilters && (
+        <div id="integrated-discovery-filters" className="integrated-discovery-filters">
+          <label className="integrated-discovery-role">
+            Роль
+            <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+              <option value="">Любая роль</option>
+              {roleOptions.map((role) => (
+                <option value={role} key={role}>{role}</option>
+              ))}
+            </select>
+          </label>
+          <label className="integrated-discovery-check">
+            <input
+              type="checkbox"
+              checked={onlyOpen}
+              onChange={(event) => setOnlyOpen(event.target.checked)}
+            />
+            С открытым набором
+          </label>
+          <button type="button" className="integrated-discovery-reset" onClick={resetFilters}>
+            Сбросить
+          </button>
+        </div>
+      )}
+      <DataState data={loaded ? true : undefined} error={loadingError} />
+      {loaded && !loadingError && (
+        <>
+          <p className="integrated-discovery-status" role="status">
+            {currentItems.length
+              ? "Найдено: " + currentItems.length + ". Показано: " + currentVisible.length + "."
+              : "По выбранным условиям ничего не найдено."}
+          </p>
+          {kind === "startups" ? (
+            <div className="integrated-discovery-projects" aria-label="Стартапы">
+              {(currentVisible as Startup[]).map((project) => {
+                const roles = projectVacancies(project.id);
+                return (
+                  <article key={project.id} className="integrated-project-row">
+                    <h2>
+                      <button type="button" onClick={() => ctx.open(project)}>
+                        {project.title}
+                      </button>
+                    </h2>
+                    <p>{project.description || "Описание пока не добавлено."}</p>
+                    <div className="integrated-project-roles">
+                      {roles.length ? roles.map((vacancy) => (
+                        <button
+                          type="button"
+                          className="integrated-project-role"
+                          key={vacancy.id}
+                          onClick={() => setSelectedVacancyId(vacancy.id)}
+                          aria-label={"Посмотреть вакансию " + vacancy.title + " в проекте " + project.title}
+                        >
+                          {vacancy.title}
+                        </button>
+                      )) : <span className="integrated-project-closed">Нет открытых вакансий</span>}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="integrated-discovery-vacancies" aria-label="Все вакансии">
+              {(currentVisible as Vacancy[]).map((vacancy) => (
+                <VacancyView
+                  key={vacancy.id}
+                  initial={vacancy}
+                  ctx={ctx}
+                  manage={canManage(vacancy.startup_id)}
+                  projectTitle={allProjects.find((p) => p.id === vacancy.startup_id)?.title}
+                />
+              ))}
+            </div>
+          )}
+          {!currentItems.length && (
+            <div className="integrated-discovery-empty">
+              <h2>{kind === "startups" ? "Проектов не найдено" : "Подходящих вакансий пока нет"}</h2>
+              <p>Попробуйте другое название или роль.</p>
+              <button type="button" className="integrated-discovery-secondary" onClick={resetFilters}>
+                Сбросить поиск
+              </button>
+            </div>
+          )}
+          {kind === "startups" && selectedVacancy && (
+            <div className="integrated-discovery-detail">
+              <button
+                type="button"
+                className="integrated-discovery-secondary"
+                onClick={() => setSelectedVacancyId(null)}
+              >
+                Закрыть условия вакансии
+              </button>
+              <div className="integrated-discovery-vacancies">
+                <VacancyView
+                  key={selectedVacancy.id}
+                  initial={selectedVacancy}
+                  ctx={ctx}
+                  manage={canManage(selectedVacancy.startup_id)}
+                  projectTitle={allProjects.find((p) => p.id === selectedVacancy.startup_id)?.title}
+                />
+              </div>
+            </div>
+          )}
+          {visibleCount < currentItems.length && (
+            <button
+              type="button"
+              className="integrated-discovery-secondary integrated-discovery-more"
+              onClick={() => setVisibleCount((v) => v + 20)}
+            >
+              Показать ещё
             </button>
           )}
         </>
       )}
-    </>
+    </section>
   );
 }
+
 function ProjectView({
   startupId,
   ctx,
@@ -841,10 +978,12 @@ function VacancyView({
   initial,
   ctx,
   manage,
+  projectTitle,
 }: {
   initial: Vacancy;
   ctx: Context;
   manage: boolean;
+  projectTitle?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const v = initial;
@@ -852,6 +991,7 @@ function VacancyView({
     <article className="panel vacancy-block">
       <div className="row">
         <div>
+          {projectTitle && <p className="integrated-discovery-vacancy-overline">{projectTitle} · версия {v.current_version}</p>}
           <h3>{v.title}</h3>
           <Status value={v.status} />
           <p>{v.description}</p>
