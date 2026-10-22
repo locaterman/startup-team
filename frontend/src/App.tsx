@@ -428,7 +428,7 @@ export default function App() {
     busy,
   };
   return (
-    <div className={"page" + (tab !== "projects" || !selected ? " integrated-design-page" : "")}>
+    <div className="page integrated-design-page">
       <AppHeader
         user={user}
         active={tab}
@@ -450,7 +450,7 @@ export default function App() {
           })
         }
       />
-      <main id="app-content" tabIndex={-1} className={"container content" + (tab !== "projects" || !selected ? " integrated-content" : "")}>
+      <main id="app-content" tabIndex={-1} className="container content integrated-content">
         {error && !dialog && (
           <div className="banner error" role="alert">
             {error}
@@ -786,7 +786,7 @@ function ProjectView({
   const owner = p?.owner_id === ctx.user.id;
   const manage = managed.data?.some((s) => s.id === startupId) || false;
   return (
-    <>
+    <div className="complete-workspace">
       <button className="back" onClick={back}>
         <ArrowLeft size={16} /> Назад к проектам
       </button>
@@ -958,7 +958,7 @@ function ProjectView({
           )}
         </>
       )}
-    </>
+    </div>
   );
 }
 function applicationForm(
