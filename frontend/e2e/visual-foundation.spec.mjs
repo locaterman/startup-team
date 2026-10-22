@@ -123,6 +123,15 @@ for (const size of sizes) {
     await page.getByRole("button", { name: "Новый проект" }).click();
     const dialog = page.getByRole("dialog", { name: "Новый стартап" });
     await expect(dialog).toBeVisible();
+    const drawer = await dialog.boundingBox();
+    expect(drawer).not.toBeNull();
+    expect(drawer.x + drawer.width, "Drawer must reach the viewport right edge")
+      .toBeGreaterThanOrEqual(size.width - 2);
+    expect(drawer.x, "Drawer should not occupy the entire desktop viewport")
+      .toBeGreaterThanOrEqual(size.name === "desktop" ? size.width - 655 : -1);
+    expect(drawer.y, "Drawer should start at the top").toBeLessThanOrEqual(1);
+    expect(drawer.height, "Drawer should span the available screen")
+      .toBeGreaterThanOrEqual(size.height - 2);
     const modalColors = await dialog.evaluate((node) => ({
       background: getComputedStyle(node).backgroundColor,
       color: getComputedStyle(node).color,
