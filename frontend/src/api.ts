@@ -185,6 +185,14 @@ export async function api<T>(
   if (!response.ok) {
     const data = await response.json().catch(() => null);
     if (response.status < 500) pending.delete(signature);
+    if (response.status === 401 &&
+        !["/auth/login", "/auth/telegram", "/auth/me"].includes(path)) {
+      // An authenticated API call has lost its server-side session.
+      // A global event avoids coupling the transport to React components.
+      setCsrf("");
+      if (typeof window !== "undefined")
+        window.dispatchEvent(new Event("startup:auth-required"));
+    }
     throw Error(
       messages[data?.error?.code] ||
         data?.error?.details?.errors
