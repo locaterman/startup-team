@@ -75,6 +75,35 @@ for (const size of sizes) {
       await page.getByRole("button", { name: label, exact: true }).first().click();
       await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
       await checkScreen(page, size.name + "-" + name);
+      if (name === "projects") {
+        const input = page.getByRole("textbox", { name: "Поиск проекта или роли" });
+        await input.focus();
+        await expect(input).toBeFocused();
+        const focusRings = await input.evaluate((el) => {
+          const parent = el.closest(".integrated-discovery-search");
+          const inputCSS = getComputedStyle(el);
+          const parentCSS = getComputedStyle(parent);
+          return {
+            parentFocusWithin: parent.matches(":focus-within"),
+            parentOutline: parentCSS.outlineStyle,
+            parentOutlineWidth: parentCSS.outlineWidth,
+            innerOutline: inputCSS.outlineStyle,
+            innerBoxShadow: inputCSS.boxShadow,
+            innerBorder: inputCSS.borderTopWidth,
+          };
+        });
+        expect(focusRings.parentFocusWithin).toBe(true);
+        expect(focusRings.parentOutline).toBe("solid");
+        expect(focusRings.parentOutlineWidth).toBe("2px");
+        expect(focusRings.innerOutline, "Search input must not have a second nested focus outline").toBe("none");
+        expect(focusRings.innerBoxShadow).toBe("none");
+        expect(focusRings.innerBorder).toBe("0px");
+        mkdirSync("visual-evidence", { recursive: true });
+        await page.screenshot({
+          path: "visual-evidence/" + size.name + "-search-focused.png",
+          animations: "disabled",
+        });
+      }
       if (name === "projects" && size.name === "desktop") {
         const search = await page.locator(".integrated-discovery-search").boundingBox();
         const filters = await page.locator(".integrated-discovery-filter-toggle").boundingBox();
