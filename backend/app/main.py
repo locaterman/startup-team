@@ -3,7 +3,7 @@ import secrets, uuid, os
 from datetime import datetime, timezone
 from typing import Literal
 from fastapi import FastAPI, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ConfigDict, Field, AnyHttpUrl, TypeAdapter, field_validator, model_validator
@@ -210,7 +210,7 @@ def telegram_login(body:TelegramLogin,request:Request,conn:Connection=Depends(db
 def logout(request:Request,conn:Connection=Depends(db),me=Depends(auth)):
     raw=request.cookies.get('session')
     run(conn,'UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_digest=:d',d=digest(raw))
-    response=JSONResponse(status_code=204,content=None)
+    response=Response(status_code=204)
     response.delete_cookie('session',path='/')
     return response
 
