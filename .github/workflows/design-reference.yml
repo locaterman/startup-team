@@ -1,0 +1,57 @@
+name: Approved complete design reference
+
+on:
+  push:
+    branches: [chatgpt/complete-api-integration]
+    paths:
+      - 'design/prototypes/**'
+      - 'frontend/reference/**'
+      - 'frontend/playwright-reference.config.mjs'
+      - '.github/workflows/design-reference.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install original design prototype dependencies
+        working-directory: design/prototypes
+        run: npm install --no-audit --no-fund
+      - name: Install browser tests dependencies
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Start original complete prototype
+        run: |
+          (cd design/prototypes && npm run dev > /tmp/startup-complete-design.log 2>&1) &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:5174/complete.html >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/startup-complete-design.log
+          exit 1
+      - name: Capture original complete design at two viewports
+        working-directory: frontend
+        run: npx playwright test -c playwright-reference.config.mjs
+      - name: Upload unaltered original reference screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-complete-reference
+          path: |
+            frontend/reference-evidence
+            frontend/test-results
+          if-no-files-found: error
+          retention-days: 14
