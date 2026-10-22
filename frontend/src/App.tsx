@@ -1802,8 +1802,14 @@ function ApplicationCard({
   ctx: Context;
   manager: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(manager);
   const own = a.applicant_id === ctx.user.id;
+  const candidate = useData(
+    () => manager
+      ? api<Person>("/users/" + a.applicant_id)
+      : Promise.resolve(undefined),
+    [a.applicant_id, manager, ctx.user.id, ctx.revision],
+  );
   const membership = useData(
     () =>
       own && ["joined", "already_joined"].includes(a.status)
@@ -1822,6 +1828,29 @@ function ApplicationCard({
         </div>
         <Status value={a.status} />
       </header>
+      {manager && (
+        <section className="cw-candidate-profile">
+          <h4>О кандидате</h4>
+          {candidate.error && <p className="cw-muted">Не удалось загрузить профиль кандидата.</p>}
+          {candidate.data ? (
+            <>
+              <p className="prewrap">{candidate.data.bio || "Описание пока не заполнено."}</p>
+              <dl className="cw-candidate-facts">
+                <dt>Навыки</dt>
+                <dd>{candidate.data.skills.length ? candidate.data.skills.join(", ") : "Не указаны"}</dd>
+                <dt>Портфолио</dt>
+                <dd>
+                  {candidate.data.portfolio_url ? (
+                    <a href={candidate.data.portfolio_url} target="_blank" rel="noopener noreferrer">
+                      Открыть портфолио ↗
+                    </a>
+                  ) : "Не добавлено"}
+                </dd>
+              </dl>
+            </>
+          ) : !candidate.error && <p className="cw-muted">Загрузка профиля…</p>}
+        </section>
+      )}
       {a.rejection_reason && (
         <div className="cw-record-reason">
           <strong>Причина решения</strong>
