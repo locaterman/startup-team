@@ -27,6 +27,11 @@ async function login(page) {
 }
 
 async function checkScreen(page, label) {
+  // A screenshot of the loading skeleton is not evidence of the final page.
+  // Each screen must finish all visible data requests before capture.
+  await expect(page.getByText("Загрузка…", { exact: true })).toHaveCount(0);
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("alert")).toHaveCount(0);
   const evaluated = await page.evaluate(() => {
     const css = getComputedStyle(document.body);
     const root = getComputedStyle(document.documentElement);
@@ -70,6 +75,20 @@ for (const size of sizes) {
       await page.getByRole("button", { name: label, exact: true }).first().click();
       await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
       await checkScreen(page, size.name + "-" + name);
+      if (name === "cabinet") {
+        const workspaceTabs = page.getByRole("tablist", { name: "Управление проектом" });
+        await expect(workspaceTabs, "Cabinet must render a real project workspace").toBeVisible();
+        for (const [tabName, slug] of [
+          ["Отклики", "responses"], ["Вакансии", "vacancies"],
+          ["Приглашения", "invites"], ["Команда", "team"],
+          ["Рекрутеры", "recruiters"], ["Настройки", "settings"],
+        ]) {
+          const tab = workspaceTabs.getByRole("tab", { name: new RegExp("^" + tabName) });
+          await tab.click();
+          await expect(tab).toHaveAttribute("aria-selected", "true");
+          await checkScreen(page, size.name + "-cabinet-" + slug);
+        }
+      }
     }
     for (const [label, name] of accountViews) {
       if (label === "Уведомления") {
