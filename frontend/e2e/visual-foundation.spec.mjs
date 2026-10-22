@@ -1,0 +1,94 @@
+import { test, expect } from "@playwright/test";
+
+const views = [
+  ["Стартапы", "projects"],
+  ["Вакансии", "vacancies"],
+  ["Кабинет", "cabinet"],
+  ["Мои отклики", "applications"],
+];
+const accountViews = [
+  ["Мой профиль", "profile"],
+  ["Мои команды", "teams"],
+  ["Уведомления", "notifications"],
+];
+const sizes = [
+  { name: "desktop", width: 1365, height: 900 },
+  { name: "mobile", width: 390, height: 844 },
+];
+
+async function login(page) {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Добро пожаловать" })).toBeVisible();
+  await page.getByLabel("Email").fill("ivan@example.test");
+  await page.getByLabel("Пароль").fill("demo-ivan-123");
+  await page.getByRole("button", { name: "Войти в демо" }).click();
+  await expect(page.getByRole("navigation", { name: "Основные разделы" })).toBeVisible();
+}
+
+async function checkScreen(page, testInfo, label) {
+  const evaluated = await page.evaluate(() => {
+    const css = getComputedStyle(document.body);
+    const root = getComputedStyle(document.documentElement);
+    const selectors = [".panel", ".modal", ".vacancy-block", ".history-item", ".cw-candidate-detail"];
+    const surfaceColors = selectors.flatMap((selector) =>
+      [...document.querySelectorAll(selector)].map((el) => ({
+        selector,
+        background: getComputedStyle(el).backgroundColor,
+        color: getComputedStyle(el).color,
+      })),
+    );
+    return {
+      bodyBg: css.backgroundColor,
+      rootBg: root.backgroundColor,
+      fontFamily: css.fontFamily,
+      horizontalOverflow: document.documentElement.scrollWidth - window.innerWidth,
+      surfaceColors,
+    };
+  });
+  expect(evaluated.bodyBg, label + " background").toBe("rgb(11, 19, 34)");
+  expect(evaluated.fontFamily, label + " typography").toContain("Manrope");
+  expect(evaluated.horizontalOverflow, label + " viewport overflow").toBeLessThanOrEqual(1);
+  for (const element of evaluated.surfaceColors) {
+    expect(element.background, label + " old white card").not.toBe("rgb(255, 255, 255)");
+    expect(element.color, label + " old dark-on-light text").not.toBe("rgb(19, 33, 49)");
+  }
+  await testInfo.attach(label + ".png", {
+    body: await page.screenshot({ fullPage: true, animations: "disabled" }),
+    contentType: "image/png",
+  });
+}
+
+for (const size of sizes) {
+  test("complete visual foundation and no horizontal overflow: " + size.name, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await login(page);
+    for (const [label, name] of views) {
+      await page.getByRole("button", { name: label, exact: true }).first().click();
+      await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
+      await checkScreen(page, testInfo, size.name + "-" + name);
+    }
+    for (const [label, name] of accountViews) {
+      if (label === "Уведомления") {
+        await page.getByRole("button", { name: /^Уведомления/ }).first().click();
+      } else {
+        await page.getByRole("button", { name: /^Профиль:/ }).click();
+        await page.getByRole("button", { name: label, exact: true }).click();
+      }
+      await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
+      await checkScreen(page, testInfo, size.name + "-" + name);
+    }
+    await page.getByRole("button", { name: "Кабинет", exact: true }).first().click();
+    await page.getByRole("button", { name: "Новый проект" }).click();
+    const dialog = page.getByRole("dialog", { name: "Новый стартап" });
+    await expect(dialog).toBeVisible();
+    const modalColors = await dialog.evaluate((node) => ({
+      background: getComputedStyle(node).backgroundColor,
+      color: getComputedStyle(node).color,
+    }));
+    expect(modalColors.background).toBe("rgb(16, 29, 48)");
+    expect(modalColors.color).toBe("rgb(238, 242, 248)");
+    await checkScreen(page, testInfo, size.name + "-dialog");
+    await dialog.getByRole("button", { name: "Закрыть" }).click();
+    await expect(dialog).toBeHidden();
+  });
+}
