@@ -54,6 +54,15 @@ jobs:
           exit 1
       - name: Verify strict HTTP 204 logout framing
         run: docker compose -p startup_team_browser_ci exec -T api pytest -q /app/backend/tests/test_http_responses.py
+      - name: Run complete backend regression suite in separate migrated test DB
+        run: |
+          docker compose -p startup_team_browser_ci exec -T db psql -U startup -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE startup_test_ci;"
+          docker compose -p startup_team_browser_ci exec -T api sh -ec '
+            export TEST_DATABASE_URL="${DATABASE_URL%/startup}/startup_test_ci"
+            export DATABASE_URL="$TEST_DATABASE_URL"
+            alembic -c /app/backend/alembic.ini upgrade head
+            pytest -q /app/backend/tests
+          '
       - name: Run Chromium multi-account workflows
         working-directory: frontend
         env:
