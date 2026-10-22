@@ -125,3 +125,39 @@
   .complete-workspace .cw-context .cw-owner {width:100%;margin-left:0}
   .complete-workspace .cw-empty {padding:22px}
 }
+
+/* Shared command dialogs still use the original, tested form/controller.
+   Re-skin rather than duplicate its CSRF/revision-aware save behavior. */
+.integrated-design-page .modal-cover {
+  background:rgba(2,7,17,.83);
+  backdrop-filter:blur(2px);
+}
+.integrated-design-page .modal {
+  background:#101d30;color:#eef2f8;border:1px solid #263b53;
+  box-shadow:0 22px 70px #0008;border-radius:4px;
+  padding:30px;max-height:min(94dvh,900px)
+}
+.integrated-design-page .modal-top h2 {
+  color:#eef2f8;font:500 24px/1.25 Manrope,"Segoe UI",sans-serif;letter-spacing:-.6px
+}
+.integrated-design-page .modal-top button {color:#b1bed0}
+.integrated-design-page .modal label,.integrated-design-page .modal > p {
+  color:#b1bed0;font:500 13px/1.6 Manrope,"Segoe UI",sans-serif
+}
+.integrated-design-page .modal input,.integrated-design-page .modal textarea,
+.integrated-design-page .modal select {
+  background:#0b1322;color:#eef2f8;border:1px solid #3d526d;
+  min-height:44px;padding:11px 13px;border-radius:4px;font:inherit
+}
+.integrated-design-page .modal textarea {min-height:110px}
+.integrated-design-page .modal .primary {
+  background:#3a67c7;border:1px solid #3a67c7;color:#fff;
+  border-radius:4px;font:550 13px Manrope,"Segoe UI",sans-serif;min-height:44px
+}
+.integrated-design-page .banner {
+  background:#14243b;border:1px solid #3d526d;color:#eef2f8;
+  border-radius:4px;font:13px Manrope,"Segoe UI",sans-serif
+}
+.integrated-design-page .banner.error {border-color:#805053;color:#ffc5c5}
+.integrated-design-page .banner button {color:inherit}
+.integrated-design-page .footer {color:#92a4bd}
