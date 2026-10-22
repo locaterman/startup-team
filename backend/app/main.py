@@ -75,18 +75,33 @@ def refresh_candidate_offers(conn, user_id):
         lock_startup(conn,row['startup_id'])
         expire_offers(conn,row['startup_id'])
 
+def has_later_vacancy_reset(conn, vacancy_id, attempted_version_id):
+    """A pending offer remains valid across a reset, but its old attempt must not reopen."""
+    if not vacancy_id or not attempted_version_id:
+        return False
+    return bool(run(conn,'''SELECT 1 FROM vacancy_versions previous
+        JOIN vacancy_versions newer ON newer.vacancy_id=previous.vacancy_id
+        WHERE previous.id=:previous AND previous.vacancy_id=:vacancy
+          AND newer.version>previous.version
+          AND newer.change_mode='reset_applications' LIMIT 1''',
+        previous=attempted_version_id,vacancy=vacancy_id).scalar())
+
 def reopen_attempt_after_offer(conn, attempt_id, startup_id):
-    # Offer is no longer pending: continue selection only if vacancy is active.
-    row=run(conn,"""SELECT a.vacancy_id,s.status AS startup_status,v.status AS vacancy_status
+    # Called with startup row locked. Expiry/revocation after a later vacancy reset
+    # cannot restore the outdated conditions without a fresh candidate application.
+    row=run(conn,"""SELECT a.vacancy_id,at.vacancy_version_id,
+      s.status AS startup_status,v.status AS vacancy_status
       FROM application_attempts at JOIN applications a ON a.id=at.application_id
       JOIN startups s ON s.id=a.startup_id
       LEFT JOIN vacancies v ON v.id=a.vacancy_id
       WHERE at.id=:a AND a.startup_id=:s""",a=attempt_id,s=startup_id).mappings().first()
     if not row:return
     unfinished=(row['startup_status']!='archived' and row['vacancy_status']!='archived')
+    reset=has_later_vacancy_reset(conn,row['vacancy_id'],row['vacancy_version_id'])
+    next_status='closed' if not unfinished else 'reset' if reset else 'reviewing'
     run(conn,"""UPDATE application_attempts SET status=:next,revision=revision+1,
       updated_at=clock_timestamp() WHERE id=:a AND status='offer_pending' """,
-      next='reviewing' if unfinished else 'closed',a=attempt_id)
+      next=next_status,a=attempt_id)
 
 APPLICATION_SELECT="""SELECT a.id,a.applicant_id,a.startup_id,a.vacancy_id,
     at.id AS attempt_id,at.status,at.message,at.revision,at.created_at,at.vacancy_version_id,
@@ -473,6 +488,8 @@ def create_offer(application_id:uuid.UUID,body:OfferCreate,conn:Connection=Depen
     if r['vacancy_id']:
         vac=run(conn,'SELECT status FROM vacancies WHERE id=:v',v=r['vacancy_id']).mappings().one()
         guard(vac['status']!='archived','VACANCY_ARCHIVED')
+        guard(not has_later_vacancy_reset(conn,r['vacancy_id'],r['vacancy_version_id']),
+              'APPLICATION_NEEDS_RESUBMISSION')
         guard(capacity_locked(conn,r['vacancy_id'])['available']>0,'NO_CAPACITY')
     oid=run(conn,'''INSERT INTO offers(attempt_id,startup_id,candidate_id,vacancy_id,vacancy_version_id,expires_at,message,created_by)
              VALUES(:attempt,:startup,:candidate,:vacancy,:version,:exp,:message,:by) RETURNING id''',
@@ -531,7 +548,12 @@ def decide_offer(offer_id, action, conn, me):
             guard(cap['available']>=0,'CAPACITY_INVARIANT_VIOLATED')
         # Database constraint requires the offer to be accepted BEFORE inserting membership.
         # Entire sequence stays atomic: a failed membership insert rolls back the status change.
-        run(conn,"UPDATE offers SET status='accepted',decided_at=clock_timestamp(),revision=revision+1 WHERE id=:o",o=offer_id)
+        accepted=run(conn,"""UPDATE offers SET status='accepted',decided_at=clock_timestamp(),revision=revision+1
+          WHERE id=:o AND status='pending' AND expires_at>clock_timestamp() RETURNING id""",o=offer_id).scalar()
+        if accepted is None:
+            # Preserve the independent clock-expiry transition in this transaction.
+            expire_offers(conn,s['id'])
+            return JSONResponse(status_code=409,content={'error':{'code':'OFFER_EXPIRED','message':'Offer expired','details':{},'request_id':str(uuid.uuid4())}})
         run(conn,"INSERT INTO startup_members(startup_id,user_id,joined_via_offer_id) VALUES(:s,:u,:o)",s=s['id'],u=me['id'],o=offer_id)
         run(conn,"UPDATE application_attempts SET status='joined',revision=revision+1 WHERE id=:a",a=r['attempt_id'])
         # Close competing pending offers and unfinished attempts in this startup.
@@ -742,10 +764,18 @@ def respond_recruiter(invitation_id:uuid.UUID,request:Request,conn:Connection=De
     if action=='accept':
         guard(s['status']=='active','STARTUP_INACTIVE')
         guard(not run(conn,'SELECT 1 FROM recruiter_grants WHERE startup_id=:s AND user_id=:u AND revoked_at IS NULL',s=s['id'],u=me['id']).scalar(),'ALREADY_RECRUITER')
-        run(conn,"UPDATE recruiter_invitations SET status='accepted',decided_at=clock_timestamp() WHERE id=:i",i=invitation_id)
+        accepted=run(conn,"""UPDATE recruiter_invitations
+          SET status='accepted',decided_at=clock_timestamp()
+          WHERE id=:i AND status='pending' AND expires_at>clock_timestamp()
+          RETURNING id""",i=invitation_id).scalar()
+        guard(accepted is not None,'INVITATION_NOT_ACTIVE')
         run(conn,'INSERT INTO recruiter_grants(startup_id,user_id,invitation_id) VALUES(:s,:u,:i)',s=s['id'],u=me['id'],i=invitation_id)
     else:
-        run(conn,"UPDATE recruiter_invitations SET status='declined',decided_at=clock_timestamp() WHERE id=:i",i=invitation_id)
+        declined=run(conn,"""UPDATE recruiter_invitations
+          SET status='declined',decided_at=clock_timestamp()
+          WHERE id=:i AND status='pending' AND expires_at>clock_timestamp()
+          RETURNING id""",i=invitation_id).scalar()
+        guard(declined is not None,'INVITATION_NOT_ACTIVE')
     evt(conn,s['id'],me['id'],'recruiter_invitation',invitation_id,'recruiter.'+action)
     return record(run(conn,'SELECT id,startup_id,user_id,status,expires_at FROM recruiter_invitations WHERE id=:i',i=invitation_id).mappings().one())
 @app.post('/api/v1/recruiter-invitations/{invitation_id}/revoke')
@@ -862,12 +892,21 @@ def submit_test(application_id:uuid.UUID,body:SubmissionCreate,conn:Connection=D
 @app.patch('/api/v1/test-submissions/{submission_id}')
 @command(200)
 def review_test(submission_id:uuid.UUID,body:SubmissionReview,conn:Connection=Depends(db, scope="function"),me=Depends(domain_auth)):
-    r=run(conn,'''SELECT t.id,t.attempt_id,a.startup_id,a.applicant_id
+    r=run(conn,'''SELECT t.id,t.attempt_id,t.test_version_id,a.startup_id,a.applicant_id,
+      at.status AS attempt_status,at.is_current
       FROM test_submissions t JOIN application_attempts at ON at.id=t.attempt_id
       JOIN applications a ON a.id=at.application_id WHERE t.id=:id''',id=submission_id).mappings().first()
     if not r:err('SUBMISSION_NOT_FOUND',404)
     s=lock_startup(conn,r['startup_id'])
     guard(can_manage(conn,s,me['id']) and str(me['id'])!=str(r['applicant_id']),'PERMISSION_DENIED',403)
+    guard(s['status']!='archived' and r['is_current'] and
+          r['attempt_status'] in ('pending','reviewing','offer_pending'),
+          'SUBMISSION_NOT_REVIEWABLE')
+    guard(not run(conn,'''SELECT 1 FROM test_assignment_versions submitted
+          JOIN test_assignment_versions newer ON newer.vacancy_id=submitted.vacancy_id
+          WHERE submitted.id=:version AND newer.version>submitted.version
+          AND newer.change_type='critical' LIMIT 1''',
+          version=r['test_version_id']).scalar(),'SUBMISSION_NOT_REVIEWABLE')
     changed=run(conn,"UPDATE test_submissions SET status='reviewed',reviewed_by=:user,reviewed_at=clock_timestamp() WHERE id=:id AND status='submitted' RETURNING id",user=me['id'],id=submission_id).scalar()
     guard(changed is not None,'SUBMISSION_NOT_REVIEWABLE')
     evt(conn,s['id'],me['id'],'test_submission',submission_id,'test.reviewed')
