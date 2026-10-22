@@ -228,3 +228,90 @@
     padding: 20px 0;
   }
 }
+
+/* Command form presentation follows the approved complete project's side drawer.
+ * FormDialog remains the tested React command coordinator; its API submissions,
+ * validation, Escape handling, busy state and focus management are unchanged.
+ */
+.integrated-design-page .modal-cover {
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: 0;
+  background: #020711b8;
+}
+.integrated-design-page .modal {
+  width: min(650px,100%);
+  max-width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: -20px 0 80px #0005;
+  background: var(--bg);
+  color: var(--text);
+  gap: 0;
+  display: block;
+  overflow-y: auto;
+}
+.integrated-design-page .modal-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 22px 36px;
+  margin-bottom: 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.integrated-design-page .modal-top h2 {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 550;
+  line-height: 1.5;
+  letter-spacing: -.2px;
+}
+.integrated-design-page .modal > label,
+.integrated-design-page .modal > p,
+.integrated-design-page .modal > .primary {
+  margin-left: 44px;
+  margin-right: 44px;
+}
+.integrated-design-page .modal > label:first-of-type,
+.integrated-design-page .modal > p:first-of-type {
+  margin-top: 32px;
+}
+.integrated-design-page .modal > label {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+}
+.integrated-design-page .modal > label input,
+.integrated-design-page .modal > label select,
+.integrated-design-page .modal > label textarea {
+  width: 100%;
+  max-width: 100%;
+}
+.integrated-design-page .modal > .primary {
+  margin-top: 28px;
+  margin-bottom: 44px;
+  min-height: 44px;
+}
+.integrated-design-page .modal > .error {
+  padding: 14px 0;
+}
+@media(max-width:650px) {
+  .integrated-design-page .modal { width: 100%; }
+  .integrated-design-page .modal-top { padding: 16px 20px; }
+  .integrated-design-page .modal > label,
+  .integrated-design-page .modal > p,
+  .integrated-design-page .modal > .primary {
+    margin-left: 20px; margin-right: 20px;
+  }
+}
