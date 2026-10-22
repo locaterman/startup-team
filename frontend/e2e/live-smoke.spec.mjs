@@ -60,7 +60,9 @@ test("two real demo users: create vacancy, apply once, reload, prevent duplicate
   await expect(page.getByText(role, { exact: true })).toBeVisible();
 
   // Playwright contexts isolate cookie jars although both visit one hostname.
-  const candidateContext = await browser.newContext();
+  const candidateContext = await browser.newContext({
+    baseURL: process.env.E2E_BASE_URL || "http://127.0.0.1:18086",
+  });
   try {
     const candidate = await candidateContext.newPage();
     await login(candidate, "maria@example.test", "demo-maria-123");
