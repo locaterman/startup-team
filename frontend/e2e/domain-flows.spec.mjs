@@ -256,3 +256,51 @@ test("mobile recruiter workspace switches between candidate list and full detail
     await owner.context.close();
   }
 });
+
+test("approved inline settings save with revision, persist on reload and pause/resume", async ({ browser }) => {
+  const owner = await actor(browser, "owner");
+  try {
+    const { project } = await createProjectAndVacancy(owner.page);
+    const newTitle = unique("Inline settings saved");
+    await owner.page.getByRole("button", { name: "Кабинет", exact: true }).click();
+    const picker = owner.page.getByRole("combobox", { name: "Управляемый проект" });
+    await picker.selectOption(project.id);
+    await owner.page.getByRole("tab", { name: "Настройки" }).click();
+    const editor = owner.page.locator(".cw-project-settings-editor");
+    await expect(editor.getByRole("heading", { name: "О проекте" })).toBeVisible();
+    await expect(editor.getByRole("button", { name: "Сохранить" })).toBeDisabled();
+    await editor.getByRole("textbox", { name: "Название *" }).fill(newTitle);
+    await editor.getByRole("textbox", { name: "Описание" }).fill("Real API inline settings");
+    const general = editor.getByRole("checkbox", { name: /Разрешить общие отклики/ });
+    const previous = await general.isChecked();
+    await general.setChecked(!previous);
+    await capturePopulated(owner.page, "inline-project-settings");
+    await editor.getByRole("button", { name: "Сохранить" }).click();
+    await expect(editor.getByRole("button", { name: "Сохранить" })).toBeDisabled();
+    const updated = await requestAs(owner.page, "GET", "/startups/" + project.id);
+    expect(updated).toMatchObject({
+      title: newTitle,
+      description: "Real API inline settings",
+      allow_general_applications: !previous,
+    });
+    expect(updated.revision).toBeGreaterThan(project.revision);
+    await owner.page.reload();
+    await owner.page.getByRole("button", { name: "Кабинет", exact: true }).click();
+    await owner.page.getByRole("combobox", { name: "Управляемый проект" }).selectOption(project.id);
+    await owner.page.getByRole("tab", { name: "Настройки" }).click();
+    await expect(owner.page.locator(".cw-project-settings-editor")
+      .getByRole("textbox", { name: "Название *" })).toHaveValue(newTitle);
+    await expect(owner.page.locator(".cw-project-settings-editor")
+      .getByRole("checkbox", { name: /Разрешить общие отклики/ }))
+      .toBeChecked({ checked: !previous });
+    await owner.page.getByRole("button", { name: "Приостановить набор" }).click();
+    await expect(owner.page.getByText("Пауза", { exact: true }).first()).toBeVisible();
+    const paused = await requestAs(owner.page, "GET", "/startups/" + project.id);
+    expect(paused.status).toBe("paused");
+    await owner.page.getByRole("button", { name: "Возобновить набор" }).click();
+    const active = await requestAs(owner.page, "GET", "/startups/" + project.id);
+    expect(active.status).toBe("active");
+  } finally {
+    await owner.context.close();
+  }
+});
