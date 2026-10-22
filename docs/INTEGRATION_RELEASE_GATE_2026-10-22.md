@@ -14,6 +14,14 @@ The original backend review and the complete-design review covered separate impl
 - [x] Disabled auth / existing-application buttons lacked clearly distinct styling: disabled states are now dark grey.
 - [ ] Confirm the above fixes in a real browser after rebuilding the preview.
 
+## Automated checks now implemented
+
+- [x] Native Node regression tests for `getApplyState` (new, pending, rejected, withdrawn, reset, owner, paused, archived, expired).
+- [x] API-client regression tests (cursor paging/cycle protection, credential mode, CSRF, Idempotency-Key, If-Match, session error localization).
+- [x] `frontend/Dockerfile` runs `npm test` before `npm run build`.
+- [x] GitHub Actions runs tests and TypeScript/Vite build: [successful run](https://github.com/locaterman/startup-team/actions/runs/39770048428).
+- [ ] Browser Playwright scenarios are authored in `frontend/e2e/live-smoke.spec.mjs`, **but have not been executed in a running browser**. E2E environment setup is pending.
+
 ## P0 — required browser acceptance before merging
 
 - [ ] Clean browser, demo login: config loads, a single login request, `/auth/csrf` and `/auth/context` work; no false success banner.
