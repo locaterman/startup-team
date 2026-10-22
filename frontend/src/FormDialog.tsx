@@ -126,11 +126,12 @@ export function FormDialog({
             </div>
           </div>
         )}
-        {dialog.fields.map((field) => (
+        {dialog.fields.map((field, index) => (
           <label key={field.name}>
             {field.label}
             {field.options ? (
               <select
+                autoFocus={index === 0}
                 required={field.required}
                 value={values[field.name] || ""}
                 onChange={(e) =>
@@ -145,6 +146,7 @@ export function FormDialog({
               </select>
             ) : field.type === "textarea" ? (
               <textarea
+                autoFocus={index === 0}
                 maxLength={field.name === "reason" ? 2000 : 5000}
                 value={values[field.name] || ""}
                 onChange={(e) =>
@@ -153,6 +155,7 @@ export function FormDialog({
               />
             ) : (
               <input
+                autoFocus={index === 0}
                 type={field.type || "text"}
                 required={field.required}
                 min={field.type === "number" ? 1 : undefined}
