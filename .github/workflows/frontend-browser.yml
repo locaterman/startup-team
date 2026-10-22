@@ -73,6 +73,11 @@ jobs:
           CI: 'true'
           E2E_BASE_URL: 'http://127.0.0.1:18086'
         run: npm run test:e2e
+      - name: Seed four preview startups and eight vacancies via genuine API
+        run: |
+          python3 scripts/seed_preview_catalog.py
+          python3 scripts/seed_preview_catalog.py | tee /tmp/preview-seed-rerun.log
+          grep -F "Created on this run: 0 projects, 0 vacancies." /tmp/preview-seed-rerun.log
       - name: Preserve desktop and mobile visual evidence
         if: success()
         uses: actions/upload-artifact@v4
