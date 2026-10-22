@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Rocket, LogOut, Plus, ArrowLeft } from "lucide-react";
+import { Rocket, Plus, ArrowLeft } from "lucide-react";
+import { AppHeader } from "./AppHeader";
 import { api, all, setCsrf, dateTime, localDate, instant } from "./api";
 import { AuthScreen, OnboardingScreen } from "./AuthScreen";
 import { telegramApp, type AuthConfig, type AuthContext } from "./telegram";
@@ -427,52 +428,27 @@ export default function App() {
   };
   return (
     <div className="page">
-      <header>
-        <div className="container topbar">
-          <div className="brand">
-            <Rocket size={20} /> Бизнес-клуб <span>TEAM</span>
-          </div>
-          <nav>
-            {[
-              ["projects", "Стартапы"],
-              ["vacancies", "Вакансии"],
-              ["cabinet", "Мой кабинет"],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                className={tab === key ? "active" : ""}
-                onClick={() => {
-                  setSelected(null);
-                  setTab(key);
-                  setError("");
-                  setNotice("");
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
-          <div className="user-controls">
-            <span>{user.name}</span>
-            <button
-              title="Выйти"
-              disabled={busy}
-              onClick={() =>
-                void perform(async () => {
-                  await api("/auth/logout", "POST");
-                  setCsrf("");
-                  setUser(null);
-                  setSelected(null);
-                  setDialog(null);
-                })
-              }
-            >
-              <LogOut size={18} />
-            </button>
-          </div>
-        </div>
-      </header>
-      <main className="container content">
+      <AppHeader
+        user={user}
+        active={tab}
+        busy={busy}
+        onNavigate={(section) => {
+          setSelected(null);
+          setTab(section);
+          setError("");
+          setNotice("");
+        }}
+        onLogout={() =>
+          void perform(async () => {
+            await api("/auth/logout", "POST");
+            setCsrf("");
+            setUser(null);
+            setSelected(null);
+            setDialog(null);
+          })
+        }
+      />
+      <main id="app-content" tabIndex={-1} className="container content">
         {error && !dialog && (
           <div className="banner error" role="alert">
             {error}
