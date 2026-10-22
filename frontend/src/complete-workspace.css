@@ -114,13 +114,6 @@
 .complete-workspace .details-body {background:var(--cw-surface);color:var(--cw-secondary);margin-top:12px}
 .complete-workspace details {color:var(--cw-secondary);margin:15px 0}
 .complete-workspace summary {cursor:pointer;color:var(--cw-accent);padding:9px 0}
-.complete-workspace .cw-settings-layout {display:grid;grid-template-columns:minmax(0,1fr) minmax(200px,300px);gap:32px}
-.complete-workspace .cw-settings-layout > section {border-top:1px solid var(--cw-line);padding-top:20px}
-.complete-workspace .cw-settings-layout p {color:var(--cw-secondary);margin:14px 0}
-.complete-workspace .cw-settings-layout .cw-danger {color:#efb2b7}
-.complete-workspace .cw-mini-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:25px}
-.complete-workspace .cw-mini-grid > section {padding:22px;border:1px solid var(--cw-line);background:var(--cw-surface)}
-.complete-workspace .cw-mini-grid p {color:var(--cw-secondary);margin:10px 0 16px}
 .complete-workspace .cw-list-title {font-size:20px!important;margin:32px 0 12px!important}
 .complete-workspace .cw-profile-layout {display:grid;grid-template-columns:minmax(180px,270px) minmax(0,1fr);gap:36px;padding-top:30px}
 .complete-workspace .cw-profile-summary,.complete-workspace .cw-profile-fields {padding:26px;border:1px solid var(--cw-line);background:var(--cw-surface)}
@@ -132,17 +125,14 @@
 .complete-workspace .cw-notification p {color:var(--cw-secondary);margin:6px 0}
 .complete-workspace .cw-notification time {color:var(--cw-muted);font-size:11px}
 .complete-workspace .cw-notification.unread {border-left:3px solid var(--cw-accent);padding-left:16px}
-.complete-workspace .cw-error {padding:16px;border:1px solid #805053;color:#ffc5c5}
-.complete-workspace .cw-back {margin-bottom:18px}
 @media(max-width:800px) {
   .complete-workspace .cw-candidates {grid-template-columns:1fr;gap:18px}
   .complete-workspace .cw-candidate-list {border-right:0;border-bottom:1px solid var(--cw-line);min-height:0;padding-right:0}
   .complete-workspace .cw-candidate-detail {padding:24px 22px}
 
-  .complete-workspace .cw-settings-layout,.complete-workspace .cw-profile-layout {grid-template-columns:1fr}
+  .complete-workspace .cw-profile-layout {grid-template-columns:1fr}
 }
 @media(max-width:550px) {
-  .complete-workspace .cw-mini-grid {grid-template-columns:1fr}
   .complete-workspace .cw-notification {grid-template-columns:1fr}
   .complete-workspace .cw-candidate-detail {padding:20px}
   .complete-workspace .cw-heading {align-items:start}
