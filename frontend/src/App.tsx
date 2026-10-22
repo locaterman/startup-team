@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Plus, ArrowLeft, Search, SlidersHorizontal, X } from "lucide-react";
 import { AppHeader } from "./AppHeader";
+import { getApplyState } from "./getApplyState";
 import "./discovery.css";
 import "./complete-workspace.css";
 import { api, all, setCsrf, dateTime, localDate, instant } from "./api";
@@ -1049,8 +1050,9 @@ function VacancyView({
 }) {
   const [expanded, setExpanded] = useState(false);
   const v = initial;
-  const existingApplication =
-    ctx.myApplications?.find((application) => application.vacancy_id === v.id);
+  const applyState = getApplyState(
+    v, ctx.user.id, ctx.myApplications, ctx.myApplicationsError, ctx.busy,
+  );
   return (
     <article className="panel vacancy-block">
       <div className="row">
@@ -1076,40 +1078,37 @@ function VacancyView({
           <VacancyDetails vacancy={v} ctx={ctx} manage={manage} />
         </>
       )}
-      {v.owner_id !== ctx.user.id &&
-        v.startup_status === "active" &&
-        v.status === "published" &&
-        new Date(v.application_deadline) > new Date() && (
-          <div className="vacancy-apply-actions">
-            {existingApplication ? (
-              <>
-                <button type="button" className="primary vacancy-applied" disabled>
-                  {existingApplication.status === "reset"
-                    ? "Новая попытка — через мои отклики"
-                    : "Отклик уже отправлен"}
-                </button>
-                <button type="button" className="outline" onClick={ctx.showApplications}>
-                  Мои отклики
-                </button>
-              </>
-            ) : ctx.myApplications === undefined ? (
+      {applyState.kind !== "hidden" && (
+        <div className="vacancy-apply-actions">
+          {applyState.kind === "existing" ? (
+            <>
               <button type="button" className="primary vacancy-applied" disabled>
-                {ctx.myApplicationsError
-                  ? "Не удалось проверить отклик"
-                  : "Проверяем статус отклика…"}
+                {applyState.applicationStatus === "reset"
+                  ? "Новая попытка — через мои отклики"
+                  : "Отклик уже отправлен"}
               </button>
-            ) : (
-              <button
-                type="button"
-                className="primary"
-                disabled={ctx.busy}
-                onClick={() => applicationForm(ctx, "vacancy", v.id)}
-              >
-                Откликнуться
+              <button type="button" className="outline" onClick={ctx.showApplications}>
+                Мои отклики
               </button>
-            )}
-          </div>
-        )}
+            </>
+          ) : applyState.kind === "loading" || applyState.kind === "error" ? (
+            <button type="button" className="primary vacancy-applied" disabled>
+              {applyState.kind === "error"
+                ? "Не удалось проверить отклик"
+                : "Проверяем статус отклика…"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="primary"
+              disabled={applyState.kind === "busy"}
+              onClick={() => applicationForm(ctx, "vacancy", v.id)}
+            >
+              {applyState.kind === "busy" ? "Сохраняем…" : "Откликнуться"}
+            </button>
+          )}
+        </div>
+      )}
     </article>
   );
 }
