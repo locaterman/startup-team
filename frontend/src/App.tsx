@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Plus, ArrowLeft, Search, SlidersHorizontal, X } from "lucide-react";
 import { AppHeader } from "./AppHeader";
 import "./discovery.css";
+import "./complete-workspace.css";
 import { api, all, setCsrf, dateTime, localDate, instant } from "./api";
 import { AuthScreen, OnboardingScreen } from "./AuthScreen";
 import { telegramApp, type AuthConfig, type AuthContext } from "./telegram";
@@ -474,7 +475,7 @@ export default function App() {
           ))}
         {tab === "vacancies" && <Feed kind="vacancies" ctx={context} />}
         {tab === "cabinet" && (
-          <Cabinet key={user.id} ctx={context} updateUser={setUser} />
+          <Cabinet key={user.id} ctx={context} />
         )}
       </main>
       <footer className="container footer">
@@ -1269,55 +1270,476 @@ function VacancyDetails({
     </>
   );
 }
-function Cabinet({
-  ctx,
-  updateUser,
+function openCreateProject(ctx: Context) {
+  ctx.form({
+    title: "Новый стартап",
+    fields: [text("title", "Название", true), area("description", "Описание")],
+    submit: async (values) => {
+      await api("/startups", "POST", {
+        title: values.title,
+        description: values.description || "",
+        allow_general_applications: true,
+      });
+    },
+  });
+}
+
+function openCreateVacancy(ctx: Context, startupId: string) {
+  ctx.form({
+    title: "Новая вакансия",
+    fields: [
+      text("title", "Название", true),
+      area("description", "Описание"),
+      area("requirements", "Требования"),
+      { name: "positions_count", label: "Количество мест", type: "number", required: true },
+      date("deadline", "Приём откликов до"),
+    ],
+    values: { positions_count: "1", deadline: localDate() },
+    submit: async (values) => {
+      await api("/startups/" + startupId + "/vacancies", "POST", {
+        title: values.title,
+        description: values.description || "",
+        requirements: values.requirements || "",
+        positions_count: Number(values.positions_count),
+        application_deadline: instant(values.deadline),
+      });
+    },
+  });
+}
+
+function openProjectSettings(ctx: Context, project: Startup) {
+  ctx.form({
+    title: "Настройки проекта",
+    values: {
+      title: project.title,
+      description: project.description,
+      general: String(project.allow_general_applications),
+    },
+    fields: [
+      text("title", "Название", true),
+      area("description", "Описание"),
+      {
+        name: "general",
+        label: "Общие отклики",
+        options: [
+          { value: "true", label: "Разрешены" },
+          { value: "false", label: "Запрещены" },
+        ],
+      },
+    ],
+    submit: async (values) => {
+      await api("/startups/" + project.id, "PATCH", {
+        title: values.title,
+        description: values.description,
+        allow_general_applications: values.general === "true",
+      }, project.revision);
+    },
+  });
+}
+
+function CompleteEmpty({
+  title,
+  description,
+  action,
 }: {
-  ctx: Context;
-  updateUser: (user: Person) => void;
+  title: string;
+  description: string;
+  action?: ReactNode;
 }) {
+  return (
+    <div className="cw-empty">
+      <h2>{title}</h2>
+      <p>{description}</p>
+      {action}
+    </div>
+  );
+}
+
+type WorkspaceTab =
+  "responses" | "vacancies" | "invites" | "team" | "recruiters" | "settings";
+
+function ProjectWorkspace({ project, ctx }: { project: Startup; ctx: Context }) {
+  const owner = project.owner_id === ctx.user.id;
+  const [tab, setTab] = useState<WorkspaceTab>("responses");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState("");
+  const incoming = useData(
+    () => all<Application>("/startups/" + project.id + "/applications"),
+    [project.id, ctx.revision],
+  );
+  const vacancies = useData(
+    () => all<Vacancy>("/startups/" + project.id + "/vacancies"),
+    [project.id, ctx.revision],
+  );
+  const invites = useData(
+    () => all<Offer>("/startups/" + project.id + "/offers"),
+    [project.id, ctx.revision],
+  );
+  const matchingApplications = (incoming.data || []).filter(
+    (app) => !statusFilter || app.status === statusFilter,
+  );
+  const selected = matchingApplications.find((app) => app.id === selectedId)
+    || matchingApplications[0];
+  const tabList: { id: WorkspaceTab; label: string; count?: number }[] = [
+    { id: "responses", label: "Отклики", count: incoming.data?.length },
+    { id: "vacancies", label: "Вакансии", count: vacancies.data?.length },
+    { id: "invites", label: "Приглашения", count: invites.data?.length },
+    { id: "team", label: "Команда" },
+    { id: "recruiters", label: "Рекрутеры" },
+    ...(owner ? [{ id: "settings" as const, label: "Настройки" }] : []),
+  ];
+  const changeTab = (value: WorkspaceTab) => {
+    setTab(value);
+    setSelectedId(null);
+    setStatusFilter("");
+  };
+
+  return (
+    <>
+      <div className="cw-context">
+        <strong>{project.title}</strong>
+        <Status value={project.status} />
+        <span className="cw-owner">{owner ? "Вы основатель" : "Вы рекрутер"}</span>
+      </div>
+      <div className="cw-tabs" role="tablist" aria-label="Управление проектом">
+        {tabList.map((item) => (
+          <button
+            key={item.id}
+            id={"cw-tab-" + item.id}
+            role="tab"
+            type="button"
+            aria-selected={item.id === tab}
+            aria-controls={"cw-panel-" + item.id}
+            tabIndex={item.id === tab ? 0 : -1}
+            onClick={() => changeTab(item.id)}
+          >
+            {item.label}{item.count !== undefined ? " · " + item.count : ""}
+          </button>
+        ))}
+      </div>
+      <div
+        id={"cw-panel-" + tab}
+        role="tabpanel"
+        aria-labelledby={"cw-tab-" + tab}
+        className="cw-panel"
+      >
+        {tab === "responses" && (
+          <>
+            <DataState {...incoming} />
+            {incoming.data && incoming.data.length > 0 && (
+              <div className="cw-candidates">
+                <div className="cw-candidate-list" aria-label="Входящие отклики">
+                  <select
+                    aria-label="Статус отклика"
+                    value={statusFilter}
+                    onChange={(event) => {
+                      setStatusFilter(event.target.value);
+                      setSelectedId(null);
+                    }}
+                  >
+                    <option value="">Все отклики</option>
+                    {Array.from(new Set(incoming.data.map((app) => app.status))).map((status) => (
+                      <option value={status} key={status}>{labels[status] || status}</option>
+                    ))}
+                  </select>
+                  {matchingApplications.map((app) => (
+                    <button
+                      type="button"
+                      className="cw-candidate-button"
+                      aria-pressed={selected?.id === app.id}
+                      key={app.id}
+                      onClick={() => setSelectedId(app.id)}
+                    >
+                      <strong>{app.applicant_name || "Кандидат"}</strong>
+                      <span>{app.vacancy_title || "Общий отклик"} · {app.startup_title}</span>
+                      <small>{labels[app.status] || app.status}</small>
+                    </button>
+                  ))}
+                  {!matchingApplications.length && (
+                    <p className="cw-muted" style={{padding:20}}>Нет откликов с таким статусом.</p>
+                  )}
+                </div>
+                <div className="cw-candidate-detail" aria-label="Подробности кандидата">
+                  {selected ? (
+                    <ApplicationCard key={selected.id} application={selected} ctx={ctx} manager={true} />
+                  ) : (
+                    <p className="cw-muted">Выберите отклик.</p>
+                  )}
+                </div>
+              </div>
+            )}
+            {incoming.data?.length === 0 && (
+              <CompleteEmpty
+                title="Пока нет откликов"
+                description="Отклики на вакансии и общие обращения появятся здесь."
+              />
+            )}
+          </>
+        )}
+        {tab === "vacancies" && (
+          <>
+            <div className="cw-panel-head">
+              <h2>Вакансии проекта</h2>
+              {project.status === "active" && (
+                <button className="cw-button primary" disabled={ctx.busy} onClick={() => openCreateVacancy(ctx, project.id)}>
+                  Добавить вакансию
+                </button>
+              )}
+            </div>
+            <DataState {...vacancies} />
+            {vacancies.data?.map((vacancy) => (
+              <VacancyView key={vacancy.id} initial={vacancy} ctx={ctx} manage={true} />
+            ))}
+            {vacancies.data?.length === 0 && (
+              <CompleteEmpty
+                title="Кого ищет ваша команда?"
+                description="Добавьте первую вакансию с требованиями, количеством мест и сроком приёма."
+              />
+            )}
+          </>
+        )}
+        {tab === "invites" && (
+          <>
+            <h2>Приглашения в команду</h2>
+            <DataState {...invites} />
+            {invites.data?.map((offer) => (
+              <OfferCard key={offer.id} offer={offer} ctx={ctx} manager={true} />
+            ))}
+            {invites.data?.length === 0 && (
+              <CompleteEmpty title="Приглашений пока нет" description="Здесь появятся отправленные кандидатам предложения." />
+            )}
+          </>
+        )}
+        {tab === "team" && (
+          <>
+            <h2>Состав команды</h2>
+            <p className="cw-muted">Членство возникает после принятия приглашения кандидатом. История выхода сохраняется.</p>
+            <Team startupId={project.id} owner={owner} ctx={ctx} />
+          </>
+        )}
+        {tab === "recruiters" && (
+          <>
+            <h2>Рекрутеры</h2>
+            <p className="cw-muted">Полномочия рекрутера не равны членству в команде.</p>
+            <Recruiters startupId={project.id} owner={owner} active={project.status === "active"} ctx={ctx} />
+          </>
+        )}
+        {tab === "settings" && owner && (
+          <div className="cw-settings-layout">
+            <section>
+              <h2>Настройки стартапа</h2>
+              <p>{project.description || "Описание проекта пока не добавлено."}</p>
+              <p>Общие отклики: {project.allow_general_applications ? "разрешены" : "выключены"}</p>
+              {project.status !== "archived" && (
+                <div className="cw-actions">
+                  <button className="cw-button" disabled={ctx.busy} onClick={() => openProjectSettings(ctx, project)}>
+                    Изменить название и условия
+                  </button>
+                  <button
+                    className="cw-button"
+                    disabled={ctx.busy}
+                    onClick={() => void ctx.perform(async () => {
+                      await api(
+                        "/startups/" + project.id + "/" + (project.status === "active" ? "pause" : "resume"),
+                        "POST", undefined, project.revision,
+                      );
+                    })}
+                  >
+                    {project.status === "active" ? "Приостановить" : "Возобновить"}
+                  </button>
+                </div>
+              )}
+            </section>
+            <section>
+              <h2>Архив и история</h2>
+              <p>Архивирование завершает набор. Команда и история сохранятся, вернуть проект из архива нельзя.</p>
+              {project.status !== "archived" && (
+                <button
+                  className="cw-button cw-danger"
+                  disabled={ctx.busy}
+                  onClick={() => ctx.form({
+                    title: "Архивировать проект?",
+                    notice: "Ожидающие приглашения будут отозваны. Восстановление невозможно.",
+                    fields: [],
+                    submit: async () => {
+                      await api("/startups/" + project.id + "/archive", "POST", undefined, project.revision);
+                    },
+                  })}
+                >
+                  Архивировать
+                </button>
+              )}
+            </section>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function Cabinet({ ctx }: { ctx: Context }) {
   const managed = useData(
     () => all<Startup>("/startups?scope=managed"),
     [ctx.user.id, ctx.revision],
   );
-  const teams = useData(
-    () => all<Startup>("/startups?scope=member"),
-    [ctx.user.id, ctx.revision],
+  const [projectId, setProjectId] = useState("");
+  const selected = managed.data?.find((p) => p.id === projectId) || managed.data?.[0];
+
+  return (
+    <div className="complete-workspace">
+      <div className="cw-heading">
+        <div>
+          <h1>Кабинет</h1>
+          <p className="cw-subtitle">Проекты, кандидаты и люди вашей команды.</p>
+        </div>
+        <div className="cw-actions">
+          {selected && (
+            <label className="cw-project-picker">
+              <span>Проект</span>
+              <select aria-label="Управляемый проект" value={selected.id}
+                onChange={(event) => setProjectId(event.target.value)}>
+                {managed.data?.map((p) => (
+                  <option value={p.id} key={p.id}>
+                    {p.title} · {labels[p.status] || p.status}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button className="cw-button primary" disabled={ctx.busy} onClick={() => openCreateProject(ctx)}>
+            <Plus size={16} aria-hidden="true" /> Новый проект
+          </button>
+        </div>
+      </div>
+      <DataState {...managed} />
+      {!selected && managed.data && (
+        <CompleteEmpty
+          title="Здесь будут ваши проекты"
+          description="Создайте стартап или примите приглашение стать рекрутером. Отклики, личный профиль и уведомления находятся в отдельных разделах."
+          action={<button className="cw-button primary" disabled={ctx.busy} onClick={() => openCreateProject(ctx)}>
+            Создать первый проект
+          </button>}
+        />
+      )}
+      {selected && <ProjectWorkspace key={selected.id} project={selected} ctx={ctx} />}
+    </div>
   );
+}
+
+function ApplicationsScreen({ ctx }: { ctx: Context }) {
   const applications = useData(
-    () => all<Application>("/applications/mine"),
-    [ctx.user.id, ctx.revision],
+    () => all<Application>("/applications/mine"), [ctx.user.id, ctx.revision],
   );
   const offers = useData(
-    () => all<Offer>("/offers/mine"),
-    [ctx.user.id, ctx.revision],
+    () => all<Offer>("/offers/mine"), [ctx.user.id, ctx.revision],
   );
   const invitations = useData(
-    () => all<Invitation>("/recruiter-invitations/mine"),
-    [ctx.user.id, ctx.revision],
-  );
-  const notifications = useData(
-    () => all<Notification>("/notifications"),
-    [ctx.user.id, ctx.revision],
+    () => all<Invitation>("/recruiter-invitations/mine"), [ctx.user.id, ctx.revision],
   );
   return (
-    <>
-      <div className="pagehead">
+    <div className="complete-workspace">
+      <div className="cw-heading">
         <div>
-          <div className="eyebrow">Профиль / Личный кабинет</div>
-          <h1>Привет, {ctx.user.name}.</h1>
-          <p>{ctx.user.bio || "Расскажите о себе в профиле."}</p>
-          <p>{ctx.user.skills.join(", ")}</p>
-          {ctx.user.portfolio_url && (
-            <a href={ctx.user.portfolio_url} target="_blank" rel="noreferrer">
-              Портфолио
-            </a>
+          <h1>Мои отклики</h1>
+          <p className="cw-subtitle">Заявки, решения команд, приглашения и история попыток.</p>
+        </div>
+      </div>
+      <h2 className="cw-list-title">Приглашения в команду</h2>
+      <DataState {...offers} />
+      {offers.data?.map((offer) => (
+        <OfferCard key={offer.id} offer={offer} ctx={ctx} manager={false} />
+      ))}
+      {offers.data?.length === 0 && <p className="cw-muted">Пока нет приглашений в команду.</p>}
+      <h2 className="cw-list-title">Отправленные отклики</h2>
+      <DataState {...applications} />
+      {applications.data?.map((app) => (
+        <ApplicationCard key={app.id} application={app} ctx={ctx} manager={false} />
+      ))}
+      {applications.data?.length === 0 && <p className="cw-muted">Вы ещё не откликались.</p>}
+      <h2 className="cw-list-title">Приглашения стать рекрутером</h2>
+      <DataState {...invitations} />
+      {invitations.data?.map((inv) => (
+        <div className="cw-entry" key={inv.id}>
+          <h3><ProjectName id={inv.startup_id} /></h3>
+          <p>Действует до {dateTime(inv.expires_at)}</p>
+          <Status value={inv.status} />
+          {inv.status === "pending" && new Date(inv.expires_at) > new Date() && (
+            <div className="cw-actions">
+              {(["accept", "decline"] as const).map((action) => (
+                <button className="cw-button" disabled={ctx.busy} key={action}
+                  onClick={() => void ctx.perform(async () => {
+                    await api("/recruiter-invitations/" + inv.id + "/" + action, "POST");
+                  })}>
+                  {action === "accept" ? "Принять полномочия" : "Отказаться"}
+                </button>
+              ))}
+            </div>
           )}
         </div>
-        <button
-          className="outline"
-          onClick={() =>
-            ctx.form({
+      ))}
+      {invitations.data?.length === 0 && <p className="cw-muted">Рекрутерских приглашений пока нет.</p>}
+    </div>
+  );
+}
+
+function TeamsScreen({ ctx }: { ctx: Context }) {
+  const teams = useData(
+    () => all<Startup>("/startups?scope=member"), [ctx.user.id, ctx.revision],
+  );
+  return (
+    <div className="complete-workspace">
+      <div className="cw-heading">
+        <div><h1>Мои команды</h1>
+          <p className="cw-subtitle">Проекты, в которых вы сейчас состоите.</p>
+        </div>
+      </div>
+      <DataState {...teams} />
+      {teams.data?.map((p) => (
+        <div className="cw-entry" key={p.id}>
+          <h3>{p.title}</h3>
+          <p>{p.description || "Описание не указано"}</p>
+          <button className="cw-button" onClick={() => ctx.open(p)}>Открыть проект</button>
+        </div>
+      ))}
+      {teams.data?.length === 0 && (
+        <CompleteEmpty title="Вы пока не состоите в командах"
+          description="После принятия приглашения команда появится здесь." />
+      )}
+    </div>
+  );
+}
+
+function ProfileScreen({
+  ctx, updateUser,
+}: {
+  ctx: Context;
+  updateUser: (person: Person) => void;
+}) {
+  const initials = ctx.user.name.split(/\s+/).filter(Boolean)
+    .slice(0, 2).map((name) => name[0]?.toUpperCase()).join("");
+  return (
+    <div className="complete-workspace">
+      <div className="cw-heading">
+        <div><h1>Мой профиль</h1>
+          <p className="cw-subtitle">Информация, которую вы показываете участникам и командам.</p>
+        </div>
+      </div>
+      <div className="cw-profile-layout">
+        <aside className="cw-profile-summary">
+          <span className="cw-avatar" aria-hidden="true">{initials}</span>
+          <h2>{ctx.user.name}</h2>
+          <p>Участник Бизнес-клуба</p>
+        </aside>
+        <section className="cw-profile-fields">
+          <h2>О себе</h2>
+          <p>{ctx.user.bio || "Расскажите о себе."}</p>
+          <h3>Навыки</h3>
+          <p>{ctx.user.skills.length ? ctx.user.skills.join(", ") : "Пока не указаны."}</p>
+          {ctx.user.portfolio_url && <p><a href={ctx.user.portfolio_url} target="_blank" rel="noreferrer">
+            Портфолио ↗
+          </a></p>}
+          <button className="cw-button primary" disabled={ctx.busy}
+            onClick={() => ctx.form({
               title: "Мой профиль",
               values: {
                 name: ctx.user.name,
@@ -1326,174 +1748,69 @@ function Cabinet({
                 portfolio_url: ctx.user.portfolio_url || "",
               },
               fields: [
-                text("name", "Имя", true),
-                area("bio", "О себе"),
+                text("name", "Имя", true), area("bio", "О себе"),
                 text("skills", "Навыки через запятую"),
                 { name: "portfolio_url", label: "Портфолио", type: "url" },
               ],
               submit: async (values) => {
-                updateUser(
-                  await api<Person>("/users/me", "PATCH", {
-                    name: values.name,
-                    bio: values.bio,
-                    skills: values.skills
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean),
-                    portfolio_url: values.portfolio_url || null,
-                  }),
-                );
+                updateUser(await api<Person>("/users/me", "PATCH", {
+                  name: values.name,
+                  bio: values.bio,
+                  skills: values.skills.split(",").map((skill) => skill.trim()).filter(Boolean),
+                  portfolio_url: values.portfolio_url || null,
+                }));
               },
-            })
-          }
-        >
-          Редактировать профиль
-        </button>
-      </div>
-      <div className="cabinet-grid">
-        <section className="panel">
-          <h2>Мои проекты и подбор</h2>
-          <DataState {...managed} />
-          {managed.data?.map((p) => (
-            <div className="line" key={p.id}>
-              <button className="text-button" onClick={() => ctx.open(p)}>
-                {p.title}
-              </button>
-              <Status value={p.status} />
-            </div>
-          ))}
-          {managed.data?.length === 0 && (
-            <p className="muted">
-              У вас пока нет своих проектов или полномочий рекрутера.
-            </p>
-          )}
-        </section>
-        <section className="panel">
-          <h2>Мои команды</h2>
-          <DataState {...teams} />
-          {teams.data?.map((p) => (
-            <div className="line" key={p.id}>
-              <button className="text-button" onClick={() => ctx.open(p)}>
-                {p.title}
-              </button>
-              <Status value={p.status} />
-            </div>
-          ))}
-          {teams.data?.length === 0 && (
-            <p className="muted">Вы пока не состоите в командах.</p>
-          )}
-        </section>
-        <section className="panel wide">
-          <h2>Отправленные отклики</h2>
-          <DataState {...applications} />
-          {applications.data?.map((a) => (
-            <ApplicationCard
-              key={a.id}
-              application={a}
-              ctx={ctx}
-              manager={false}
-            />
-          ))}
-          {applications.data?.length === 0 && (
-            <p className="muted">Вы ещё не откликались.</p>
-          )}
-        </section>
-        <section className="panel wide">
-          <h2>Приглашения в команду</h2>
-          <DataState {...offers} />
-          {offers.data?.map((offer) => (
-            <OfferCard key={offer.id} offer={offer} ctx={ctx} manager={false} />
-          ))}
-          {offers.data?.length === 0 && (
-            <p className="muted">Приглашений пока нет.</p>
-          )}
-        </section>
-        <section className="panel wide">
-          <h2>Полученные отклики</h2>
-          <DataState {...managed} />
-          {managed.data?.map((p) => (
-            <div className="section" key={p.id}>
-              <h3>
-                <button className="text-button" onClick={() => ctx.open(p)}>
-                  {p.title}
-                </button>
-              </h3>
-              <ManagedApplications startupId={p.id} ctx={ctx} />
-            </div>
-          ))}
-          {managed.data?.length === 0 && (
-            <p className="muted">Здесь появятся заявки на ваши проекты.</p>
-          )}
-        </section>
-        <section className="panel">
-          <h2>Приглашения рекрутером</h2>
-          <DataState {...invitations} />
-          {invitations.data?.map((inv) => (
-            <div className="history-item" key={inv.id}>
-              <ProjectName id={inv.startup_id} />
-              <p>До {dateTime(inv.expires_at)}</p>
-              <Status value={inv.status} />
-              {inv.status === "pending" &&
-                new Date(inv.expires_at) > new Date() && (
-                  <div className="actions wrap">
-                    {["accept", "decline"].map((action) => (
-                      <button
-                        disabled={ctx.busy}
-                        className="outline"
-                        key={action}
-                        onClick={() =>
-                          void ctx.perform(async () => {
-                            await api(
-                              `/recruiter-invitations/${inv.id}/${action}`,
-                              "POST",
-                            );
-                          })
-                        }
-                      >
-                        {action === "accept"
-                          ? "Принять полномочия"
-                          : "Отказаться"}
-                      </button>
-                    ))}
-                  </div>
-                )}
-            </div>
-          ))}
-          {invitations.data?.length === 0 && (
-            <p className="muted">Приглашений рекрутером пока нет.</p>
-          )}
-        </section>
-        <section className="panel">
-          <h2>Уведомления</h2>
-          <DataState {...notifications} />
-          {notifications.data
-            ?.sort((a, b) => b.created_at.localeCompare(a.created_at))
-            .map((n) => (
-              <div className="history-item" key={n.id}>
-                <strong>{n.title}</strong>
-                <p>{n.message}</p>
-                <p className="muted">{dateTime(n.created_at)}</p>
-                {!n.read_at && (
-                  <button
-                    className="outline"
-                    disabled={ctx.busy}
-                    onClick={() =>
-                      void ctx.perform(async () => {
-                        await api(`/notifications/${n.id}/read`, "PATCH");
-                      })
-                    }
-                  >
-                    Прочитано
-                  </button>
-                )}
-              </div>
-            ))}
-          {notifications.data?.length === 0 && (
-            <p className="muted">Уведомлений пока нет.</p>
-          )}
+            })}>
+            Редактировать профиль
+          </button>
         </section>
       </div>
-    </>
+    </div>
+  );
+}
+
+function NotificationsScreen({ ctx }: { ctx: Context }) {
+  const notifications = useData(
+    () => all<Notification>("/notifications"), [ctx.user.id, ctx.revision],
+  );
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const ordered = [...(notifications.data || [])]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const unread = ordered.filter((n) => !n.read_at).length;
+  const visible = unreadOnly ? ordered.filter((n) => !n.read_at) : ordered;
+  return (
+    <div className="complete-workspace">
+      <div className="cw-heading">
+        <div><h1>Уведомления</h1>
+          <p className="cw-subtitle">События, адресованные вашему аккаунту.</p>
+        </div>
+        <div className="cw-actions">
+          <label className="cw-project-picker">
+            <input type="checkbox" checked={unreadOnly}
+              onChange={(event) => setUnreadOnly(event.target.checked)} />
+            Только непрочитанные
+          </label>
+          <span className="cw-muted">Непрочитанных: {unread}</span>
+        </div>
+      </div>
+      <DataState {...notifications} />
+      {visible.map((item) => (
+        <article className={"cw-notification" + (!item.read_at ? " unread" : "")} key={item.id}>
+          <div>
+            <h3>{item.title}</h3>
+            <p>{item.message}</p>
+            <time dateTime={item.created_at}>{dateTime(item.created_at)}</time>
+          </div>
+          {!item.read_at && <button className="cw-button" disabled={ctx.busy}
+            onClick={() => void ctx.perform(async () => {
+              await api("/notifications/" + item.id + "/read", "PATCH");
+            })}>Прочитано</button>}
+        </article>
+      ))}
+      {notifications.data && visible.length === 0 &&
+        <CompleteEmpty title={unreadOnly ? "Всё прочитано" : "Уведомлений пока нет"}
+          description={unreadOnly ? "Новых уведомлений нет." : "Важные события появятся здесь."} />}
+    </div>
   );
 }
 function ProjectName({ id }: { id: string }) {
