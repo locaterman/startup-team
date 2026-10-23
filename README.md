@@ -100,7 +100,7 @@ UI повторно использует ключ после сетевой ош
 bash tools/test_on_macos.sh
 ```
 
-На Linux: `bash tools/test_on_linux.sh`. На Windows: `powershell -ExecutionPolicy Bypass -File tools/test_on_windows.ps1`.
+На Linux: `bash tools/test_on_linux.sh`. На Windows: `powershell -ExecutionPolicy Bypass -File tools/test_on_windows.ps1`. Оба скрипта создают **временный отдельный Docker Compose-проект** со случайным именем, собственным PostgreSQL-томом, свободным портом на `127.0.0.1` и временной конфигурацией вне репозитория. Скрипты не меняют существующий `.env` и не запускают обычный Compose-проект; при завершении (в том числе при ошибке тестов) удаляют только свой временный проект и его тома. Они предназначены для проверки, а не для постоянного локального запуска приложения. Для быстрого smoke-теста доступны `--skip-integration` (Linux) и `-SkipIntegration` (Windows).
 
 Скрипты запускают приложение и тесты в отдельной случайно названной PostgreSQL-базе. Fixtures очищают тестовые таблицы; не направляйте TEST_DATABASE_URL на рабочую базу. Для повторения расширенного протокола с существующими локальными образами: `python3 docs/audit/completion/run.py`.
 
