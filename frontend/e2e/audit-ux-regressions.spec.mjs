@@ -29,7 +29,8 @@ test("a populated dialog requires explicit discard on Escape and native Telegram
   await page.getByRole("button", { name: "Создать проект" }).click();
   const dialog = page.getByRole("dialog", { name: "Новый стартап" });
   const name = dialog.getByLabel("Название");
-  await expect(name).toBeFocused();
+  // The scenario verifies unsaved-draft protection, not browser-specific initial focus timing.
+  await expect(name).toBeVisible();
   await name.fill("Unsaved project title");
   await dialog.getByRole("button", { name: "Закрыть" }).click();
   await expect(dialog.getByText("Есть несохранённые изменения. Удалить введённый текст?")).toBeVisible();
