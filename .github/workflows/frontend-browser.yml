@@ -93,6 +93,8 @@ jobs:
             alembic -c /app/backend/alembic.ini upgrade head
             pytest -q /app/backend/tests
           '
+      - name: Verify synthetic PostgreSQL backup and restore
+        run: bash tools/verify_postgres_backup_restore.sh startup_team_browser_ci
       - name: Smoke-test isolated Linux verifier without touching browser stack
         run: |
           bash tools/test_on_linux.sh --skip-integration
