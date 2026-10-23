@@ -9,7 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ConfigDict, Field, AnyHttpUrl, TypeAdapter, field_validator, model_validator
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
-from .database import db
+from .database import db, engine
 from .commands import command
 from .pagination import paged
 from .security import auth, domain_auth, verify_password, digest, csrf, COOKIE_SECURE, lock_startup, can_manage, owner_only
@@ -165,6 +165,19 @@ class UserUpdate(PatchModel):name:str|None=Field(default=None,min_length=1,max_l
 
 @app.get('/healthz')
 def health():return {'status':'ok'}
+
+@app.get('/readyz')
+def readiness():
+    """Readiness requires a live PostgreSQL round-trip, unlike process liveness."""
+    try:
+        with engine.connect() as conn:
+            result=conn.execute(text('SELECT 1')).scalar_one()
+        if result != 1:
+            return JSONResponse(status_code=503,content={'status':'unavailable'})
+    except Exception:
+        # Do not leak connection strings, credentials or driver messages.
+        return JSONResponse(status_code=503,content={'status':'unavailable'})
+    return {'status':'ok'}
 
 @app.post('/api/v1/auth/login')
 def login(body:Login,request:Request,conn:Connection=Depends(db, scope="function")):

@@ -76,7 +76,7 @@ compose up -d --build
 echo "=== Waiting for local API ==="
 healthy=0
 for _ in $(seq 1 50); do
-  if curl -fsS --max-time 3 "http://127.0.0.1:$PORT/healthz" >/dev/null; then
+  if curl -fsS --max-time 3 "http://127.0.0.1:$PORT/readyz" >/dev/null; then
     healthy=1
     break
   fi

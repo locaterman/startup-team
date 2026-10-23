@@ -48,7 +48,7 @@ try {
             $webPort = [int]$Matches[1]
         }
     }
-    $healthUri = "http://localhost:$webPort/healthz"
+    $healthUri = "http://localhost:$webPort/readyz"
     $ready = $false
     for ($i = 0; $i -lt 20; $i++) {
         try {

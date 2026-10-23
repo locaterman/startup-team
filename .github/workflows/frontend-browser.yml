@@ -7,8 +7,13 @@ on:
     paths:
       - 'frontend/**'
       - 'backend/**'
-      - 'compose.yaml'
-      - '.github/workflows/frontend-browser.yml'
+      - 'compose*.yaml'
+      - 'deploy/**'
+      - 'contracts/**'
+      - 'db/**'
+      - 'scripts/**'
+      - 'tools/**'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 concurrency:
@@ -38,6 +43,14 @@ jobs:
             printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)"
             printf 'CSRF_SECRET=%s\n' "$(openssl rand -hex 32)"
           } > .env
+      - name: Validate production and Telegram Compose overlays
+        env:
+          APP_DOMAIN: ci.example.invalid
+          TELEGRAM_BOT_TOKEN: ci-configuration-only
+          TELEGRAM_SECRET_PATH: /tmp/ci-unused-telegram-secret
+        run: |
+          docker compose -f compose.yaml -f compose.production.yaml config --quiet
+          docker compose -f compose.yaml -f deploy/compose.telegram-staging.yaml config --quiet
       - name: Install browser test dependencies
         working-directory: frontend
         run: npm install --no-audit --no-fund
@@ -49,7 +62,7 @@ jobs:
       - name: Check test stack readiness
         run: |
           for i in $(seq 1 45); do
-            if curl -fsS --max-time 5 http://127.0.0.1:18086/healthz; then
+            if curl -fsS --max-time 5 http://127.0.0.1:18086/readyz; then
               exit 0
             fi
             sleep 3

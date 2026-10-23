@@ -71,7 +71,7 @@ else
 fi
 docker compose ps
 
-health_url="http://127.0.0.1:$web_port/healthz"
+health_url="http://127.0.0.1:$web_port/readyz"
 echo "=== Wait for API health at $health_url ==="
 ready=0
 for (( i=0; i<45; i++ )); do
