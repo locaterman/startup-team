@@ -1,4 +1,6 @@
-# Telegram Mini App deployment on existing Debian + existing Caddy
+# Первоначальное развёртывание Telegram Mini App на Debian
+
+> **История первого развёртывания.** 23 октября 2026 приложение уже работало по адресу https://startup.locatermanhass.ru/ через бота [@test_q_buisness_club_bot](https://t.me/test_q_buisness_club_bot). Также вручную проверено сообщение о новом отклике. Ниже сохранены первоначальные шаги настройки отдельного Docker-окружения и Caddy. Это не универсальная инструкция повторного запуска: на работающем сервере уже настроены домен, секреты и отдельный PostgreSQL-том. Актуальный обзор проекта есть в [README](../README.md).
 
 The intended hostname is **startup.locatermanhass.ru** and bot is
 **@test_q_buisness_club_bot**. The source has server-side signed `initData`
