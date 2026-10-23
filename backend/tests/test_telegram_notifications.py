@@ -7,6 +7,7 @@ from urllib.error import HTTPError
 
 import pytest
 from app import telegram_notifications as tg
+from test_integration_postgres import clients, post
 
 
 def test_bot_api_sends_private_chat_web_app_button_without_parsing_user_text(monkeypatch):
