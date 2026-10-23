@@ -43,6 +43,8 @@ jobs:
             printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)"
             printf 'CSRF_SECRET=%s\n' "$(openssl rand -hex 32)"
           } > .env
+      - name: Verify CI change-trigger coverage
+        run: python3 tools/check_ci_coverage.py
       - name: Validate production and Telegram Compose overlays
         env:
           APP_DOMAIN: ci.example.invalid
