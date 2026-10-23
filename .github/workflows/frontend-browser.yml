@@ -93,16 +93,16 @@ jobs:
             alembic -c /app/backend/alembic.ini upgrade head
             pytest -q /app/backend/tests
           '
+      - name: Smoke-test isolated Linux verifier without touching browser stack
+        run: |
+          bash tools/test_on_linux.sh --skip-integration
+          curl -fsS --max-time 5 http://127.0.0.1:18086/readyz
       - name: Run Chromium multi-account workflows
         working-directory: frontend
         env:
           CI: 'true'
           E2E_BASE_URL: 'http://127.0.0.1:18086'
         run: npm run test:e2e
-      - name: Smoke-test isolated Linux verifier without touching browser stack
-        run: |
-          bash tools/test_on_linux.sh --skip-integration
-          curl -fsS --max-time 5 http://127.0.0.1:18086/readyz
       - name: Seed four preview startups and eight vacancies via genuine API
         run: |
           python3 scripts/seed_preview_catalog.py
