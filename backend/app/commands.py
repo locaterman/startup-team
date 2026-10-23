@@ -26,7 +26,7 @@ def command(status=200):
                 if not re.fullmatch(r'[A-Za-z0-9._:-]{8,120}',key):
                     raise HTTPException(422,'INVALID_IDEMPOTENCY_KEY')
                 payload={k:(v.model_dump(mode='json') if isinstance(v,BaseModel) else v)
-                         for k,v in kwargs.items() if k not in ('request','conn','me')}
+                         for k,v in kwargs.items() if k not in ('request','conn','me','background_tasks')}
                 fingerprint=hashlib.sha256(json.dumps(jsonable_encoder({
                     'method':request.method,'path':request.url.path,'body':payload,
                     'if_match':request.headers.get('If-Match')}),sort_keys=True,separators=(',',':')).encode()).hexdigest()

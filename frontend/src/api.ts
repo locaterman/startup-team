@@ -121,6 +121,9 @@ export type Page<T> = { items: T[]; next_cursor: string | null };
 let csrf = "";
 const pending = new Map<string, string>();
 const messages: Record<string, string> = {
+  AUTH_REQUIRED: "Для продолжения войдите в аккаунт.",
+  SESSION_EXPIRED: "Сессия завершилась. Повторите вход. Если открыты две тестовые версии сайта, используйте для них разные адреса.",
+  INVALID_CSRF: "Сессия изменилась. Повторите вход и обновите страницу.",
   ONBOARDING_REQUIRED:
     "Завершите заполнение профиля перед этим действием.",
   INVALID_TELEGRAM_AUTH:
@@ -182,6 +185,14 @@ export async function api<T>(
   if (!response.ok) {
     const data = await response.json().catch(() => null);
     if (response.status < 500) pending.delete(signature);
+    if (response.status === 401 &&
+        !["/auth/login", "/auth/telegram", "/auth/me"].includes(path)) {
+      // An authenticated API call has lost its server-side session.
+      // A global event avoids coupling the transport to React components.
+      setCsrf("");
+      if (typeof window !== "undefined")
+        window.dispatchEvent(new Event("startup:auth-required"));
+    }
     throw Error(
       messages[data?.error?.code] ||
         data?.error?.details?.errors

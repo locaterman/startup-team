@@ -2,6 +2,7 @@
 Run after applying migration on separate startup_test database.
 """
 import os, uuid, pytest
+from db_safety import require_disposable_test_database
 pytestmark=pytest.mark.skipif(not os.environ.get('TEST_DATABASE_URL'), reason='Requires migrated separate PostgreSQL TEST_DATABASE_URL')
 
 @pytest.fixture
@@ -12,8 +13,10 @@ def clients():
     from app.database import db
     from app.security import hash_password
     url=os.environ['TEST_DATABASE_URL']
-    if 'startup_test' not in url:
-        pytest.fail('Safety: TEST_DATABASE_URL must refer to startup_test database')
+    try:
+        require_disposable_test_database(url)
+    except ValueError as exc:
+        pytest.fail(str(exc), pytrace=False)
     engine=create_engine(url,pool_pre_ping=True)
     with engine.begin() as conn:
         for table in ['idempotency_keys','notifications','events','test_submissions','test_assignment_versions',

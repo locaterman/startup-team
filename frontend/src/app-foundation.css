@@ -1,0 +1,232 @@
+/* Startup Team app foundation.
+ * Design tokens and typographic scales taken from
+ * design/prototypes/src/final/style.css (the approved complete baseline).
+ * Legacy green/white global style.css is deliberately NOT imported.
+ * Auth uses its separate auth.css; API-backed screens use discovery.css
+ * and complete-workspace.css for their screen-specific layouts.
+ */
+@font-face {
+  font-family: Manrope;
+  src: url('/fonts/manrope.ttf') format('truetype');
+  font-weight: 200 800;
+  font-display: swap;
+}
+:root {
+  color-scheme: dark;
+  font-family: Manrope, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  --bg: #0b1322;
+  --surface: #101d30;
+  --surface-hover: #182942;
+  --header: #0b1322;
+  --text: #eef2f8;
+  --secondary: #b1bed0;
+  --muted: #92a4bd;
+  --line: #263b53;
+  --accent: #aac9ff;
+  --primary: #3a67c7;
+  --focus: #b9d2ff;
+  --danger: #efb2b7;
+  --font: Manrope, "Segoe UI", sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0;
+  min-width: 320px;
+  color: var(--text);
+  background: var(--bg);
+  font: 15px/1.65 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea, select { font: inherit; }
+button {
+  border: 0;
+  color: inherit;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  max-width: 100%;
+  transition: background 120ms, color 120ms;
+}
+button:disabled { opacity: .6; cursor: default; }
+button:focus-visible, a:focus-visible,
+input:focus-visible, textarea:focus-visible, select:focus-visible,
+summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+a:hover, button:hover:not(:disabled) { color: var(--accent); }
+h1, h2, h3, h4, p { margin: 0; }
+h1 { font-size: clamp(28px,4vw,36px); font-weight: 450; line-height: 1.25; letter-spacing: -1.5px; }
+h2 { font-size: 26px; font-weight: 500; line-height: 1.3; letter-spacing: -.9px; }
+h3 { font-size: 16px; font-weight: 550; }
+h4 { font-size: 14px; font-weight: 550; }
+strong { font-weight: 550; }
+input, textarea, select {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 10px 13px;
+  min-height: 44px;
+  max-width: 100%;
+  font-size: 13px;
+}
+textarea { width: 100%; min-height: 124px; line-height: 1.7; resize: vertical; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
+input[type="checkbox"] { width: 16px; height: 16px; min-height: 0; padding: 0; accent-color: var(--primary); }
+.container { width: 100%; max-width: 1200px; margin-inline: auto; padding-inline: 28px; }
+.page { min-height: 100dvh; display: flex; flex-direction: column; background: var(--bg); }
+.content { flex: 1; width: 100%; padding-block: 28px 72px; }
+.footer { color: var(--muted); font-size: 11px; padding-block: 26px 30px; }
+.row { display: flex; gap: 15px; justify-content: space-between; align-items: center; min-width: 0; }
+.wrap { flex-wrap: wrap; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0; }
+.section { margin-top: 28px; }
+.primary, .outline, .text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 17px;
+  gap: 8px;
+  border-radius: 4px;
+  font: 550 12px/1.6 var(--font);
+  white-space: normal;
+  text-align: center;
+}
+.primary { color: #fff; background: var(--primary); border: 1px solid var(--primary); }
+.primary:hover:not(:disabled) { color: #fff; background: #4977d4; }
+.outline { color: var(--text); border: 1px solid #3d526d; background: transparent; }
+.outline:hover:not(:disabled) { color: var(--accent); background: #21344d; }
+.text-button { color: var(--accent); padding-inline: 0; border: 0; background: transparent; }
+.status {
+  display: inline-flex; align-items: center; padding: 4px 0;
+  color: var(--accent); font-size: 11px; font-weight: 550;
+  line-height: 1.6; white-space: normal;
+}
+.status.red { color: var(--danger); }
+.status.green { color: #a9d3c1; }
+.muted, .hint { color: var(--muted); font-size: 13px; }
+.empty {
+  margin-top: 24px; background: var(--surface); border: 1px solid var(--line);
+  padding: 30px; border-radius: 4px; color: var(--secondary);
+}
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  padding: 26px;
+  color: var(--text);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.panel.wide { width: 100%; }
+.panel h2 { font-size: 22px; margin: 0 0 18px; }
+.line, .history-item {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.line { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.line strong { font-size: 13px; }
+.history-item p { color: var(--secondary); line-height: 1.75; margin: 8px 0; }
+.history-item .outline { margin-block: 4px; }
+.vacancy-list { display: flex; flex-direction: column; gap: 0; }
+.vacancy-block { padding: 24px 0; min-width: 0; border-bottom: 1px solid var(--line); }
+.vacancy-block h3 { margin-bottom: 12px; }
+.vacancy-block .primary { margin-top: 12px; }
+.more { margin-top: 24px; }
+.prewrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+.details-body {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  margin-top: 16px;
+  padding: 20px;
+}
+.search-form { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; margin: 20px 0; }
+.search-form label { display: flex; flex-direction: column; gap: 8px; color: var(--secondary); font-size: 13px; }
+.search-form input { min-width: 220px; }
+details { margin: 16px 0; color: var(--secondary); }
+summary { cursor: pointer; color: var(--accent); font-weight: 550; }
+.banner {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  border-radius: 4px; border: 1px solid var(--line);
+  padding: 13px 18px; margin: 0 0 25px;
+  background: var(--surface); font-size: 13px;
+}
+.banner button { min-width: 36px; min-height: 36px; font-size: 22px; }
+.banner.error, .error { color: #ffc5c5; border-color: #805053; }
+.banner.good { color: #a9d3c1; border-color: #365b59; }
+.error:not(.banner) { font-size: 13px; }
+.modal-cover {
+  position: fixed; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; background: #020711cc;
+}
+.modal {
+  display: flex; flex-direction: column; gap: 17px;
+  width: min(500px,100%); max-height: calc(100dvh - 32px);
+  overflow: auto; overflow-wrap: anywhere; padding: 30px;
+  color: var(--text); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 4px;
+  box-shadow: 0 25px 75px #0008;
+}
+.modal-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.modal-top h2 { font-size: 24px; font-weight: 500; }
+.modal-top button { min-width: 44px; min-height: 44px; font-size: 24px; }
+.modal label { display: flex; flex-direction: column; gap: 8px; color: var(--secondary); font-size: 13px; }
+.modal input, .modal select, .modal textarea { width: 100%; }
+.modal > .primary { align-self: flex-start; }
+@media(max-width:650px) {
+  .container { padding-inline: 20px; }
+  .row { flex-wrap: wrap; align-items: flex-start; }
+  .panel { padding: 18px; }
+  .modal-cover { padding: 0; }
+  .modal { max-height: 100dvh; width: 100%; border-radius: 0; }
+  .actions { align-items: flex-start; }
+  .line { align-items: flex-start; }
+  .search-form input { min-width: 0; width: 100%; }
+}
+
+/* Telegram's own chrome is outside the WebView; inset variables describe the
+   remaining *content* safe area. Apply only in a signed-launch Mini App, never
+   to the normal site. Use max(), not a sum, to avoid double-padding. */
+.telegram-mini-app .integrated-header {
+  padding-top: max(env(safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, 0px));
+}
+.telegram-mini-app .integrated-header-inner,
+.telegram-mini-app .integrated-design-page .integrated-content,
+.telegram-mini-app .integrated-design-page .footer {
+  padding-left: max(18px, env(safe-area-inset-left, 0px), var(--tg-content-safe-area-inset-left, 0px));
+  padding-right: max(18px, env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px));
+}
+.telegram-mini-app .integrated-design-page .footer {
+  padding-bottom: max(30px, env(safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px));
+}
+.telegram-mini-app .tg-auth {
+  padding-top: max(env(safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, 0px));
+  padding-bottom: max(18px, env(safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px));
+  padding-left: max(20px, env(safe-area-inset-left, 0px), var(--tg-content-safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px));
+}
+.telegram-mini-app .modal-cover {
+  padding: max(12px, env(safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, 0px))
+           max(12px, env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px))
+           max(12px, env(safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px))
+           max(12px, env(safe-area-inset-left, 0px), var(--tg-content-safe-area-inset-left, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.telegram-mini-app .modal {
+  max-height: min(calc(100dvh - 24px), var(--tg-viewport-height, 100dvh));
+  overscroll-behavior: contain;
+}
+@media (max-width: 650px) {
+  /* Avoid iOS WebView autofocus zoom when an input receives focus. */
+  .telegram-mini-app input:not([type="checkbox"]),
+  .telegram-mini-app textarea,
+  .telegram-mini-app select {
+    font-size: 16px;
+  }
+}

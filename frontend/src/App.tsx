@@ -1,8 +1,15 @@
-import { useEffect, useRef, useState } from "react";
-import { Rocket, LogOut, Plus, ArrowLeft } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Plus, ArrowLeft, Search, SlidersHorizontal, X } from "lucide-react";
+import { AppHeader } from "./AppHeader";
+import { getApplyState } from "./getApplyState";
+import { FormDialog, type Dialog, type Field } from "./FormDialog";
+import { ProjectSettingsPanel } from "./ProjectSettingsPanel";
+import "./discovery.css";
+import "./complete-workspace.css";
+import "./complete-records.css";
 import { api, all, setCsrf, dateTime, localDate, instant } from "./api";
 import { AuthScreen, OnboardingScreen } from "./AuthScreen";
-import { telegramApp, type AuthConfig, type AuthContext } from "./telegram";
+import { telegramApp, useTelegramBack, type AuthConfig, type AuthContext } from "./telegram";
 import type {
   Person,
   Startup,
@@ -18,24 +25,8 @@ import type {
   Grant,
   Notification,
   Capacity,
-  Page,
 } from "./api";
 
-type Field = {
-  name: string;
-  label: string;
-  type?: string;
-  options?: { value: string; label: string }[];
-  required?: boolean;
-};
-type Values = Record<string, string>;
-type Dialog = {
-  title: string;
-  fields: Field[];
-  values?: Values;
-  notice?: string;
-  submit: (values: Values) => Promise<void>;
-};
 type Context = {
   user: Person;
   revision: number;
@@ -43,6 +34,15 @@ type Context = {
   perform: (fn: () => Promise<void>) => Promise<void>;
   form: (dialog: Dialog) => void;
   open: (startup: Startup) => void;
+  showApplications: () => void;
+  showProjects: () => void;
+  showTeams: () => void;
+  myApplications?: Application[];
+  myApplicationsError: string;
+  retryApplications: () => void;
+  memberStartupIds?: ReadonlySet<string>;
+  membershipError: string;
+  retryMemberships: () => void;
   busy: boolean;
 };
 const labels: Record<string, string> = {
@@ -103,12 +103,17 @@ function Status({ value }: { value: string }) {
     </span>
   );
 }
-function useData<T>(request: () => Promise<T>, deps: unknown[]) {
+function useData<T>(
+  request: () => Promise<T>,
+  deps: unknown[],
+  keepPreviousOnRefresh = false,
+) {
   const [data, setData] = useState<T>(),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [retryIndex, setRetryIndex] = useState(0);
   useEffect(() => {
     let active = true;
-    setData(undefined);
+    if (!keepPreviousOnRefresh) setData(undefined);
     setError("");
     request()
       .then((value) => {
@@ -121,14 +126,17 @@ function useData<T>(request: () => Promise<T>, deps: unknown[]) {
     return () => {
       active = false;
     };
-  }, deps);
-  return { data, error };
+  }, [...deps, retryIndex]);
+  return { data, error, retry: () => setRetryIndex((index) => index + 1) };
 }
-function DataState({ data, error }: { data: unknown; error: string }) {
+function DataState({
+  data, error, retry,
+}: { data: unknown; error: string; retry?: () => void }) {
   return error ? (
-    <p className="error" role="alert">
+    <div className="error" role="alert">
       Не удалось загрузить: {error}
-    </p>
+      {retry && <button type="button" className="outline" onClick={retry}>Повторить</button>}
+    </div>
   ) : data === undefined ? (
     <p className="muted" role="status">
       Загрузка…
@@ -155,139 +163,12 @@ const date = (name: string, label: string): Field => ({
   type: "datetime-local",
   required: true,
 });
-function FormDialog({
-  dialog,
-  busy,
-  error,
-  close,
-  submit,
-}: {
-  dialog: Dialog;
-  busy: boolean;
-  error: string;
-  close: () => void;
-  submit: (v: Values) => void;
-}) {
-  const [values, setValues] = useState<Values>(dialog.values || {});
-  const root = useRef<HTMLFormElement>(null);
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    root.current
-      ?.querySelector<HTMLElement>("input,textarea,select,button")
-      ?.focus();
-    return () => previous?.focus();
-  }, []);
-  return (
-    <div
-      className="modal-cover"
-      onClick={() => {
-        if (!busy) close();
-      }}
-    >
-      <form
-        ref={root}
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={dialog.title}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          if (e.key === "Escape" && !busy) close();
-          if (e.key === "Tab") {
-            const controls = Array.from(
-              root.current?.querySelectorAll<HTMLElement>(
-                "button:not(:disabled),input,textarea,select",
-              ) || [],
-            );
-            const first = controls[0],
-              last = controls[controls.length - 1];
-            if (e.shiftKey && document.activeElement === first) {
-              e.preventDefault();
-              last?.focus();
-            } else if (!e.shiftKey && document.activeElement === last) {
-              e.preventDefault();
-              first?.focus();
-            }
-          }
-        }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit(values);
-        }}
-      >
-        <div className="modal-top">
-          <h2>{dialog.title}</h2>
-          <button
-            type="button"
-            aria-label="Закрыть"
-            disabled={busy}
-            onClick={close}
-          >
-            ×
-          </button>
-        </div>
-        {dialog.notice && <p>{dialog.notice}</p>}
-        {dialog.fields.map((field) => (
-          <label key={field.name}>
-            {field.label}
-            {field.options ? (
-              <select
-                required={field.required}
-                value={values[field.name] || ""}
-                onChange={(e) =>
-                  setValues({ ...values, [field.name]: e.target.value })
-                }
-              >
-                {field.options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            ) : field.type === "textarea" ? (
-              <textarea
-                maxLength={field.name === "reason" ? 2000 : 5000}
-                value={values[field.name] || ""}
-                onChange={(e) =>
-                  setValues({ ...values, [field.name]: e.target.value })
-                }
-              />
-            ) : (
-              <input
-                type={field.type || "text"}
-                required={field.required}
-                min={field.type === "number" ? 1 : undefined}
-                maxLength={
-                  field.name === "title"
-                    ? 180
-                    : field.name === "name"
-                      ? 120
-                      : 5000
-                }
-                value={values[field.name] || ""}
-                onChange={(e) =>
-                  setValues({ ...values, [field.name]: e.target.value })
-                }
-              />
-            )}
-          </label>
-        ))}
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        <button disabled={busy} className="primary">
-          {busy ? "Сохранение…" : "Подтвердить"}
-        </button>
-      </form>
-    </div>
-  );
-}
 export default function App() {
   const [user, setUser] = useState<Person | null>(null),
     [ready, setReady] = useState(false),
     [tab, setTab] = useState("projects"),
+    [sectionHistory, setSectionHistory] = useState<string[]>([]),
+    [detailReturnTab, setDetailReturnTab] = useState<string | null>(null),
     [selected, setSelected] = useState<Startup | null>(null),
     [revision, setRevision] = useState(0),
     [busy, setBusy] = useState(false),
@@ -301,7 +182,33 @@ export default function App() {
     demo_enabled: false,
   });
   const [onboarding, setOnboarding] = useState(false);
+  const initialBootstrapStarted = useRef(false);
+  const authRequestInFlight = useRef(false);
+  const dialogDismissRef = useRef<(() => void) | null>(null);
   const refresh = () => setRevision((v) => v + 1);
+  // Authentication is not a domain command: success should not create a
+  // "Готово" banner or invalidate all application data.
+  const authenticate = async (action: () => Promise<void>) => {
+    if (authRequestInFlight.current) return;
+    authRequestInFlight.current = true;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await action();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось выполнить вход");
+    } finally {
+      authRequestInFlight.current = false;
+      setBusy(false);
+    }
+  };
+  // Domain success banners are transient rather than sticky across navigation.
+  useEffect(() => {
+    if (!notice) return;
+    const timeout = window.setTimeout(() => setNotice(""), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
   const perform = async (fn: () => Promise<void>) => {
     setBusy(true);
     setError("");
@@ -327,6 +234,7 @@ export default function App() {
     setUser(person);
     setTab("projects");
     setSelected(null);
+    setSectionHistory([]);
   };
   const login = async () => {
     await finishLogin(
@@ -341,8 +249,8 @@ export default function App() {
       await api<Person>("/auth/telegram", "POST", { init_data: initData }),
     );
   };
-  const bootstrap = async () => {
-    setReady(false);
+  const bootstrap = async (initial = false) => {
+    if (initial) setReady(false);
     setError("");
     try {
       setAuthConfig(await api<AuthConfig>("/auth/config"));
@@ -365,8 +273,111 @@ export default function App() {
     }
   };
   useEffect(() => {
-    void bootstrap();
+    const handleExpiredSession = () => {
+      // A real 401 on an authenticated request invalidates the local UI state.
+      // We never silently replay old Telegram initData to log in again.
+      setCsrf("");
+      setUser(null);
+      setOnboarding(false);
+      setSelected(null);
+      setDetailReturnTab(null);
+      setDialog(null);
+      setSectionHistory([]);
+      setError("Сессия завершилась. Войдите снова или откройте Mini App через бота.");
+    };
+    window.addEventListener("startup:auth-required", handleExpiredSession);
+    return () => window.removeEventListener("startup:auth-required", handleExpiredSession);
   }, []);
+  useEffect(() => {
+    // Only the real Telegram WebView receives native safe-area adjustments.
+    document.documentElement.classList.toggle(
+      "telegram-mini-app", Boolean(telegramApp()?.initData),
+    );
+    return () => document.documentElement.classList.remove("telegram-mini-app");
+  }, []);
+  useEffect(() => {
+    // StrictMode runs mount effects twice in development. Do not start a
+    // second session/bootstrap request against the same HttpOnly cookie.
+    if (initialBootstrapStarted.current) return;
+    initialBootstrapStarted.current = true;
+    void bootstrap(true);
+  }, []);
+  // One request for the whole screen tree; never request once per vacancy.
+  // Identity + revision in the result prevent showing a stale "Apply" action
+  // while the data for a new login or completed command is being refreshed.
+  const ownApplications = useData(
+    () =>
+      user
+        ? all<Application>("/applications/mine").then((items) => ({
+            userId: user.id, revision, items,
+          }))
+        : Promise.resolve({ userId: "", revision, items: [] as Application[] }),
+    [user?.id, revision],
+  );
+  const myApplications =
+    user &&
+    ownApplications.data?.userId === user.id &&
+    ownApplications.data.revision === revision
+      ? ownApplications.data.items
+      : undefined;
+  const ownMemberships = useData(
+    () => user
+      ? all<Startup>("/startups?scope=member").then((members) => ({
+          userId: user.id, revision, ids: members.map((project) => project.id),
+        }))
+      : Promise.resolve({ userId: "", revision, ids: [] as string[] }),
+    [user?.id, revision],
+  );
+  const memberStartupIds =
+    user && ownMemberships.data?.userId === user.id && ownMemberships.data.revision === revision
+      ? new Set(ownMemberships.data.ids)
+      : undefined;
+  const navigateSection = (section: string) => {
+    if (section !== tab) {
+      setSectionHistory((trail) => [...trail.slice(-11), tab]);
+    }
+    setSelected(null);
+    setDetailReturnTab(null);
+    setTab(section);
+    setError("");
+    setNotice("");
+  };
+  const closeSelected = () => {
+    setSelected(null);
+    if (detailReturnTab) {
+      setTab(detailReturnTab);
+      setSectionHistory((trail) => trail.slice(0, -1));
+    }
+    setDetailReturnTab(null);
+  };
+  const handleNativeBack = () => {
+    if (busy) return;
+    if (dialog) {
+      dialogDismissRef.current?.();
+      return;
+    }
+    if (selected) {
+      closeSelected();
+      return;
+    }
+    if (sectionHistory.length) {
+      const previous = sectionHistory[sectionHistory.length - 1];
+      setSectionHistory((trail) => trail.slice(0, -1));
+      setTab(previous);
+    } else {
+      setTab("projects");
+    }
+    setError("");
+    setNotice("");
+  };
+  // Always call the hook before conditional rendering, including onboarding.
+  useTelegramBack(
+    ready && !!user && !onboarding &&
+      (!!dialog || !!selected || sectionHistory.length > 0 || tab !== "projects"),
+    handleNativeBack,
+    dialog ? 100 : 0,
+  );
+
   if (!ready)
     return (
       <main className="tg-auth">
@@ -386,9 +397,9 @@ export default function App() {
         password={password}
         onEmail={setEmail}
         onPassword={setPassword}
-        onDemo={() => void perform(login)}
-        onTelegram={() => void perform(loginTelegram)}
-        onRetry={() => void perform(bootstrap)}
+        onDemo={() => void authenticate(login)}
+        onTelegram={() => void authenticate(loginTelegram)}
+        onRetry={() => void authenticate(() => bootstrap(false))}
       />
     );
   if (onboarding)
@@ -420,59 +431,46 @@ export default function App() {
     perform,
     form,
     open: (p) => {
+      if (tab !== "projects") {
+        setSectionHistory((trail) => [...trail.slice(-11), tab]);
+        setDetailReturnTab(tab);
+      } else {
+        setDetailReturnTab(null);
+      }
       setSelected(p);
       setTab("projects");
     },
+    showApplications: () => navigateSection("applications"),
+    showProjects: () => navigateSection("projects"),
+    showTeams: () => navigateSection("teams"),
+    myApplications,
+    myApplicationsError: ownApplications.error,
+    retryApplications: ownApplications.retry,
+    memberStartupIds,
+    membershipError: ownMemberships.error,
+    retryMemberships: ownMemberships.retry,
     busy,
   };
   return (
-    <div className="page">
-      <header>
-        <div className="container topbar">
-          <div className="brand">
-            <Rocket size={20} /> Бизнес-клуб <span>TEAM</span>
-          </div>
-          <nav>
-            {[
-              ["projects", "Стартапы"],
-              ["vacancies", "Вакансии"],
-              ["cabinet", "Мой кабинет"],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                className={tab === key ? "active" : ""}
-                onClick={() => {
-                  setSelected(null);
-                  setTab(key);
-                  setError("");
-                  setNotice("");
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
-          <div className="user-controls">
-            <span>{user.name}</span>
-            <button
-              title="Выйти"
-              disabled={busy}
-              onClick={() =>
-                void perform(async () => {
-                  await api("/auth/logout", "POST");
-                  setCsrf("");
-                  setUser(null);
-                  setSelected(null);
-                  setDialog(null);
-                })
-              }
-            >
-              <LogOut size={18} />
-            </button>
-          </div>
-        </div>
-      </header>
-      <main className="container content">
+    <div className="page integrated-design-page">
+      <AppHeader
+        user={user}
+        active={tab}
+        busy={busy}
+        revision={revision}
+        onNavigate={navigateSection}
+        onLogout={() =>
+          void perform(async () => {
+            await api("/auth/logout", "POST");
+            setCsrf("");
+            setUser(null);
+            setSelected(null);
+            setDialog(null);
+            setSectionHistory([]);
+          })
+        }
+      />
+      <main id="app-content" tabIndex={-1} className="container content integrated-content">
         {error && !dialog && (
           <div className="banner error" role="alert">
             {error}
@@ -491,15 +489,18 @@ export default function App() {
               key={selected.id}
               startupId={selected.id}
               ctx={context}
-              back={() => setSelected(null)}
+              back={closeSelected}
+              backLabel={detailReturnTab ? "Назад" : "Назад к проектам"}
             />
           ) : (
             <Feed kind="startups" ctx={context} />
           ))}
         {tab === "vacancies" && <Feed kind="vacancies" ctx={context} />}
-        {tab === "cabinet" && (
-          <Cabinet key={user.id} ctx={context} updateUser={setUser} />
-        )}
+        {tab === "cabinet" && <Cabinet key={user.id} ctx={context} />}
+        {tab === "applications" && <ApplicationsScreen key={user.id} ctx={context} />}
+        {tab === "teams" && <TeamsScreen key={user.id} ctx={context} />}
+        {tab === "profile" && <ProfileScreen key={user.id} ctx={context} updateUser={setUser} />}
+        {tab === "notifications" && <NotificationsScreen key={user.id} ctx={context} />}
       </main>
       <footer className="container footer">
         Бизнес-клуб · Startup Team · 2026
@@ -513,6 +514,7 @@ export default function App() {
             setDialog(null);
             setError("");
           }}
+          registerDismiss={(handler) => { dialogDismissRef.current = handler; }}
           submit={(values) =>
             void perform(async () => {
               await dialog.submit(values);
@@ -525,133 +527,287 @@ export default function App() {
   );
 }
 function Feed({ kind, ctx }: { kind: "startups" | "vacancies"; ctx: Context }) {
+  // Fetch every authorized page before applying client-side search and filters.
+  // Filtering just the first backend page would silently hide matching records.
+  const projects = useData(
+    () => all<Startup>("/startups?scope=public"),
+    [ctx.user.id, ctx.revision],
+  );
+  const vacancies = useData(
+    () => all<Vacancy>("/vacancies"),
+    [ctx.user.id, ctx.revision],
+  );
   const managed = useData(
     () => all<Startup>("/startups?scope=managed"),
     [ctx.user.id, ctx.revision],
   );
-  const [page, setPage] = useState<Page<Startup | Vacancy>>(),
-    [error, setError] = useState(""),
-    [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [onlyOpen, setOnlyOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(20);
+  const [selectedVacancyId, setSelectedVacancyId] = useState<string | null>(null);
+  const vacancyDetailRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    let active = true;
-    setPage(undefined);
-    setError("");
-    api<Page<Startup | Vacancy>>("/" + kind)
-      .then((r) => {
-        if (active) setPage(r);
-      })
-      .catch((e) => {
-        if (active) setError(e.message);
-      });
-    return () => {
-      active = false;
-    };
-  }, [kind, ctx.revision, ctx.user.id]);
-  const more = async () => {
-    if (!page?.next_cursor) return;
-    setLoading(true);
-    try {
-      const next = await api<Page<Startup | Vacancy>>(
-        "/" + kind + "?cursor=" + encodeURIComponent(page.next_cursor),
-      );
-      setPage({
-        items: [...page.items, ...next.items],
-        next_cursor: next.next_cursor,
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Ошибка страницы");
-    } finally {
-      setLoading(false);
+    if (selectedVacancyId && vacancyDetailRef.current) {
+      vacancyDetailRef.current.scrollIntoView({ block: "start" });
+      vacancyDetailRef.current.focus({ preventScroll: true });
     }
+  }, [selectedVacancyId]);
+  useTelegramBack(
+    selectedVacancyId !== null,
+    () => setSelectedVacancyId(null),
+    50,
+  );
+
+  useEffect(() => {
+    setVisibleCount(20);
+    setSelectedVacancyId(null);
+  }, [kind, query, roleFilter, onlyOpen, ctx.user.id]);
+
+  const loadingError = projects.error || vacancies.error;
+  const loaded = projects.data !== undefined && vacancies.data !== undefined;
+  const allProjects = projects.data || [];
+  const allVacancies = vacancies.data || [];
+  const now = Date.now();
+  const isOpen = (v: Vacancy) =>
+    v.startup_status === "active" &&
+    v.status === "published" &&
+    new Date(v.application_deadline).getTime() > now;
+  const openVacancies = allVacancies.filter(isOpen);
+  const normalizedQuery = query.trim().toLocaleLowerCase("ru-RU");
+  const contains = (value: string | null | undefined) =>
+    (value || "").toLocaleLowerCase("ru-RU").includes(normalizedQuery);
+  const roleOptions = Array.from(new Set(openVacancies.map((v) => v.title)))
+    .sort((a, b) => a.localeCompare(b, "ru-RU"));
+
+  const projectVacancies = (projectId: string) =>
+    openVacancies.filter((v) => v.startup_id === projectId);
+  const filteredProjects = allProjects.filter((p) => {
+    const roles = projectVacancies(p.id);
+    const matchingText =
+      !normalizedQuery ||
+      contains(p.title) ||
+      contains(p.description) ||
+      roles.some((v) => contains(v.title) || contains(v.requirements));
+    return matchingText &&
+      (!roleFilter || roles.some((v) => v.title === roleFilter)) &&
+      (!onlyOpen || roles.length > 0);
+  });
+  const filteredVacancies = allVacancies.filter((v) =>
+    (!normalizedQuery ||
+      contains(v.title) ||
+      contains(v.description) ||
+      contains(v.requirements) ||
+      contains(allProjects.find((p) => p.id === v.startup_id)?.title)) &&
+    (!roleFilter || v.title === roleFilter) &&
+    (!onlyOpen || isOpen(v)),
+  );
+  const currentItems = kind === "startups" ? filteredProjects : filteredVacancies;
+  const currentVisible = currentItems.slice(0, visibleCount);
+  const selectedVacancy = selectedVacancyId
+    ? allVacancies.find((v) => v.id === selectedVacancyId)
+    : undefined;
+  const canManage = (startupId: string) =>
+    (managed.data || []).some((p) => p.id === startupId);
+  const resetFilters = () => {
+    setQuery("");
+    setRoleFilter("");
+    setOnlyOpen(false);
   };
+
   return (
-    <>
-      <div className="pagehead">
+    <section className="integrated-discovery" aria-label={kind === "startups" ? "Каталог проектов" : "Каталог вакансий"}>
+      <div className="integrated-discovery-head">
         <div>
-          <div className="eyebrow">Сообщество / Возможности</div>
-          <h1>
-            {kind === "startups" ? "Найди свой проект." : "Найди свою роль."}
-          </h1>
-          <p>Публикации участников Бизнес-клуба.</p>
+          <h1>{kind === "startups" ? "Стартапы" : "Вакансии"}</h1>
+          <p className="integrated-discovery-description">
+            {kind === "startups"
+              ? "Проекты участников Бизнес-клуба и открытые роли."
+              : "Найдите роль и откликнитесь на актуальную вакансию."}
+          </p>
         </div>
-        {kind === "startups" && (
-          <button
-            className="primary"
-            disabled={ctx.busy}
-            onClick={() =>
-              ctx.form({
-                title: "Новый стартап",
-                fields: [
-                  text("title", "Название", true),
-                  area("description", "Описание"),
-                ],
-                submit: async (values) => {
-                  await api("/startups", "POST", {
-                    ...values,
-                    allow_general_applications: true,
-                  });
-                },
-              })
-            }
-          >
-            <Plus size={18} /> Создать стартап
-          </button>
-        )}
-      </div>
-      <DataState data={page} error={error} />
-      {page && (
-        <>
-          <div className={kind === "startups" ? "cards" : "vacancy-list"}>
-            {page.items.map((item) =>
-              kind === "startups" ? (
-                <article className="project-card" key={item.id}>
-                  <Rocket />
-                  <h3>{item.title}</h3>
-                  <p>{item.description || "Описание пока не добавлено"}</p>
-                  <button
-                    className="outline"
-                    onClick={() => ctx.open(item as Startup)}
-                  >
-                    Подробнее
-                  </button>
-                </article>
-              ) : (
-                <VacancyView
-                  key={item.id}
-                  initial={item as Vacancy}
-                  ctx={ctx}
-                  manage={
-                    managed.data?.some(
-                      (p) => p.id === (item as Vacancy).startup_id,
-                    ) || false
-                  }
-                />
-              ),
+        <div className="integrated-discovery-actions">
+          <label className="integrated-discovery-search">
+            <Search size={18} aria-hidden="true" />
+            <input
+              aria-label="Поиск проекта или роли"
+              placeholder="Проект или роль"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            {query && (
+              <button type="button" aria-label="Очистить поиск" onClick={() => setQuery("")}>
+                <X size={16} />
+              </button>
             )}
-          </div>
-          {!page.items.length && <p className="empty">Публикаций пока нет.</p>}
-          {page.next_cursor && (
+          </label>
+          <button
+            type="button"
+            className="integrated-discovery-filter-toggle"
+            aria-expanded={showFilters}
+            aria-controls="integrated-discovery-filters"
+            onClick={() => setShowFilters((v) => !v)}
+          >
+            <SlidersHorizontal size={17} aria-hidden="true" /> Фильтры
+          </button>
+          {kind === "startups" && (
             <button
-              className="outline more"
-              disabled={loading}
-              onClick={() => void more()}
+              type="button"
+              className="integrated-discovery-secondary"
+              disabled={ctx.busy}
+              onClick={() =>
+                ctx.form({
+                  title: "Новый стартап",
+                  fields: [
+                    text("title", "Название", true),
+                    area("description", "Описание"),
+                  ],
+                  submit: async (values) => {
+                    await api("/startups", "POST", {
+                      ...values,
+                      allow_general_applications: true,
+                    });
+                  },
+                })
+              }
             >
-              {loading ? "Загрузка…" : "Показать ещё"}
+              <Plus size={17} aria-hidden="true" /> Создать проект
+            </button>
+          )}
+        </div>
+      </div>
+      {showFilters && (
+        <div id="integrated-discovery-filters" className="integrated-discovery-filters">
+          <label className="integrated-discovery-role">
+            Роль
+            <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+              <option value="">Любая роль</option>
+              {roleOptions.map((role) => (
+                <option value={role} key={role}>{role}</option>
+              ))}
+            </select>
+          </label>
+          <label className="integrated-discovery-check">
+            <input
+              type="checkbox"
+              checked={onlyOpen}
+              onChange={(event) => setOnlyOpen(event.target.checked)}
+            />
+            С открытым набором
+          </label>
+          <button type="button" className="integrated-discovery-reset" onClick={resetFilters}>
+            Сбросить
+          </button>
+        </div>
+      )}
+      <DataState data={loaded ? true : undefined} error={loadingError}
+        retry={() => { projects.retry(); vacancies.retry(); }} />
+      {managed.error && <DataState {...managed} />}
+      {loaded && !loadingError && (
+        <>
+          <p className="integrated-discovery-status" role="status">
+            {currentItems.length
+              ? "Найдено: " + currentItems.length + ". Показано: " + currentVisible.length + "."
+              : "По выбранным условиям ничего не найдено."}
+          </p>
+          {kind === "startups" ? (
+            <div className="integrated-discovery-projects" aria-label="Стартапы">
+              {(currentVisible as Startup[]).map((project) => {
+                const roles = projectVacancies(project.id);
+                return (
+                  <article key={project.id} className="integrated-project-row">
+                    <h2>
+                      <button type="button" onClick={() => ctx.open(project)}>
+                        {project.title}
+                      </button>
+                    </h2>
+                    <p>{project.description || "Описание пока не добавлено."}</p>
+                    <div className="integrated-project-roles">
+                      {roles.length ? roles.map((vacancy) => (
+                        <button
+                          type="button"
+                          className="integrated-project-role"
+                          key={vacancy.id}
+                          onClick={() => setSelectedVacancyId(vacancy.id)}
+                          aria-label={"Посмотреть вакансию " + vacancy.title + " в проекте " + project.title}
+                        >
+                          {vacancy.title}
+                        </button>
+                      )) : <span className="integrated-project-closed">Нет открытых вакансий</span>}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="integrated-discovery-vacancies" aria-label="Все вакансии">
+              {(currentVisible as Vacancy[]).map((vacancy) => (
+                <VacancyView
+                  key={vacancy.id}
+                  initial={vacancy}
+                  ctx={ctx}
+                  manage={canManage(vacancy.startup_id)}
+                  projectTitle={allProjects.find((p) => p.id === vacancy.startup_id)?.title}
+                />
+              ))}
+            </div>
+          )}
+          {!currentItems.length && (
+            <div className="integrated-discovery-empty">
+              <h2>{kind === "startups" ? "Проектов не найдено" : "Подходящих вакансий пока нет"}</h2>
+              <p>Попробуйте другое название или роль.</p>
+              <button type="button" className="integrated-discovery-secondary" onClick={resetFilters}>
+                Сбросить поиск
+              </button>
+            </div>
+          )}
+          {kind === "startups" && selectedVacancy && (
+            <div className="integrated-discovery-detail" ref={vacancyDetailRef}
+              tabIndex={-1} aria-label="Условия выбранной вакансии">
+              <button
+                type="button"
+                className="integrated-discovery-secondary"
+                onClick={() => setSelectedVacancyId(null)}
+              >
+                Закрыть условия вакансии
+              </button>
+              <div className="integrated-discovery-vacancies">
+                <VacancyView
+                  key={selectedVacancy.id}
+                  initial={selectedVacancy}
+                  ctx={ctx}
+                  manage={canManage(selectedVacancy.startup_id)}
+                  projectTitle={allProjects.find((p) => p.id === selectedVacancy.startup_id)?.title}
+                />
+              </div>
+            </div>
+          )}
+          {visibleCount < currentItems.length && (
+            <button
+              type="button"
+              className="integrated-discovery-secondary integrated-discovery-more"
+              onClick={() => setVisibleCount((v) => v + 20)}
+            >
+              Показать ещё
             </button>
           )}
         </>
       )}
-    </>
+    </section>
   );
 }
+
 function ProjectView({
   startupId,
   ctx,
   back,
+  backLabel,
 }: {
   startupId: string;
   ctx: Context;
   back: () => void;
+  backLabel: string;
 }) {
   const project = useData(
     () => api<Startup>("/startups/" + startupId),
@@ -668,10 +824,13 @@ function ProjectView({
   const p = project.data;
   const owner = p?.owner_id === ctx.user.id;
   const manage = managed.data?.some((s) => s.id === startupId) || false;
+  const generalApplication = ctx.myApplications?.find((a) =>
+    a.startup_id === startupId && a.vacancy_id === null
+  );
   return (
-    <>
+    <div className="complete-workspace">
       <button className="back" onClick={back}>
-        <ArrowLeft size={16} /> Назад к проектам
+        <ArrowLeft size={16} /> {backLabel}
       </button>
       <DataState {...project} />
       {p && (
@@ -799,12 +958,33 @@ function ProjectView({
               {!owner &&
                 p.status === "active" &&
                 p.allow_general_applications && (
-                  <button
-                    className="primary"
-                    onClick={() => applicationForm(ctx, "startup", p.id)}
-                  >
-                    Общий отклик
-                  </button>
+                  ctx.memberStartupIds?.has(p.id) ? (
+                    <button type="button" className="outline" onClick={ctx.showTeams}>
+                      Вы уже в команде
+                    </button>
+                  ) : generalApplication ? (
+                    <button type="button" className="outline" onClick={ctx.showApplications}>
+                      Мой общий отклик
+                    </button>
+                  ) : ctx.myApplications === undefined || ctx.memberStartupIds === undefined ? (
+                    <>
+                      <button type="button" className="outline" disabled>
+                        {ctx.myApplicationsError || ctx.membershipError
+                          ? "Не удалось проверить отклик"
+                          : "Проверяем статус отклика…"}
+                      </button>
+                      {(ctx.myApplicationsError || ctx.membershipError) && (
+                        <button type="button" className="outline" onClick={() => {
+                          ctx.retryApplications();
+                          ctx.retryMemberships();
+                        }}>Повторить проверку</button>
+                      )}
+                    </>
+                  ) : (
+                    <button className="primary" onClick={() => applicationForm(ctx, "startup", p.id)}>
+                      Общий отклик
+                    </button>
+                  )
                 )}
             </div>
           </div>
@@ -841,7 +1021,7 @@ function ProjectView({
           )}
         </>
       )}
-    </>
+    </div>
   );
 }
 function applicationForm(
@@ -865,28 +1045,39 @@ function VacancyView({
   initial,
   ctx,
   manage,
+  projectTitle,
 }: {
   initial: Vacancy;
   ctx: Context;
   manage: boolean;
+  projectTitle?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const v = initial;
+  const applyState = ctx.memberStartupIds === undefined
+    ? { kind: ctx.membershipError ? "error" : "loading" } as const
+    : getApplyState(
+        v, ctx.user.id, ctx.myApplications, ctx.myApplicationsError, ctx.busy,
+        Date.now(), ctx.memberStartupIds,
+      );
   return (
-    <article className="panel vacancy-block">
-      <div className="row">
-        <div>
+    <article className="cw-vacancy-record panel vacancy-block">
+      <div className="cw-vacancy-heading">
+        <div className="cw-vacancy-copy">
+          {projectTitle && <p className="cw-record-eyebrow">{projectTitle} · версия {v.current_version}</p>}
           <h3>{v.title}</h3>
-          <Status value={v.status} />
-          <p>{v.description}</p>
-          <p className="muted">
-            {v.positions_count} мест · Приём до{" "}
-            {dateTime(v.application_deadline)}
+          <p className="cw-record-preview prewrap">{v.description}</p>
+          <p className="cw-record-role">
+            {v.positions_count} мест · Приём до {dateTime(v.application_deadline)}
           </p>
         </div>
-        <button className="outline" onClick={() => setExpanded(!expanded)}>
-          {expanded ? "Свернуть" : "Подробнее"}
-        </button>
+        <div className="cw-vacancy-controls">
+          <Status value={v.status} />
+          <button className="outline" type="button" aria-expanded={expanded}
+            onClick={() => setExpanded(!expanded)}>
+            {expanded ? "Свернуть" : "Подробнее"}
+          </button>
+        </div>
       </div>
       {expanded && (
         <>
@@ -896,18 +1087,51 @@ function VacancyView({
           <VacancyDetails vacancy={v} ctx={ctx} manage={manage} />
         </>
       )}
-      {v.owner_id !== ctx.user.id &&
-        v.startup_status === "active" &&
-        v.status === "published" &&
-        new Date(v.application_deadline) > new Date() && (
-          <button
-            className="primary"
-            disabled={ctx.busy}
-            onClick={() => applicationForm(ctx, "vacancy", v.id)}
-          >
-            Откликнуться
-          </button>
-        )}
+      {applyState.kind !== "hidden" && (
+        <div className="vacancy-apply-actions">
+          {applyState.kind === "member" ? (
+            <button type="button" className="outline" onClick={ctx.showTeams}>
+              Вы уже в команде
+            </button>
+          ) : applyState.kind === "existing" ? (
+            <>
+              <button type="button" className="primary vacancy-applied" disabled>
+                {applyState.applicationStatus === "reset"
+                  ? "Новая попытка — через мои отклики"
+                  : "Отклик уже отправлен"}
+              </button>
+              <button type="button" className="outline" onClick={ctx.showApplications}>
+                Мои отклики
+              </button>
+            </>
+          ) : applyState.kind === "loading" || applyState.kind === "error" ? (
+            <>
+              <button type="button" className="primary vacancy-applied" disabled>
+                {applyState.kind === "error"
+                  ? "Не удалось проверить отклик"
+                  : "Проверяем статус отклика…"}
+              </button>
+              {applyState.kind === "error" && (
+                <button type="button" className="outline" onClick={() => {
+                  ctx.retryApplications();
+                  ctx.retryMemberships();
+                }}>
+                  Повторить проверку
+                </button>
+              )}
+            </>
+          ) : (
+            <button
+              type="button"
+              className="primary"
+              disabled={applyState.kind === "busy"}
+              onClick={() => applicationForm(ctx, "vacancy", v.id)}
+            >
+              {applyState.kind === "busy" ? "Сохраняем…" : "Откликнуться"}
+            </button>
+          )}
+        </div>
+      )}
     </article>
   );
 }
@@ -1153,55 +1377,468 @@ function VacancyDetails({
     </>
   );
 }
-function Cabinet({
-  ctx,
-  updateUser,
+function openCreateProject(ctx: Context) {
+  ctx.form({
+    title: "Новый стартап",
+    fields: [text("title", "Название", true), area("description", "Описание")],
+    submit: async (values) => {
+      await api("/startups", "POST", {
+        title: values.title,
+        description: values.description || "",
+        allow_general_applications: true,
+      });
+    },
+  });
+}
+
+function openCreateVacancy(ctx: Context, startupId: string) {
+  ctx.form({
+    title: "Новая вакансия",
+    fields: [
+      text("title", "Название", true),
+      area("description", "Описание"),
+      area("requirements", "Требования"),
+      { name: "positions_count", label: "Количество мест", type: "number", required: true },
+      date("deadline", "Приём откликов до"),
+    ],
+    values: { positions_count: "1", deadline: localDate() },
+    submit: async (values) => {
+      await api("/startups/" + startupId + "/vacancies", "POST", {
+        title: values.title,
+        description: values.description || "",
+        requirements: values.requirements || "",
+        positions_count: Number(values.positions_count),
+        application_deadline: instant(values.deadline),
+      });
+    },
+  });
+}
+
+function CompleteEmpty({
+  title,
+  description,
+  action,
 }: {
-  ctx: Context;
-  updateUser: (user: Person) => void;
+  title: string;
+  description: string;
+  action?: ReactNode;
 }) {
+  return (
+    <div className="cw-empty">
+      <h2>{title}</h2>
+      <p>{description}</p>
+      {action}
+    </div>
+  );
+}
+
+type WorkspaceTab =
+  "responses" | "vacancies" | "invites" | "team" | "recruiters" | "settings";
+
+function ProjectWorkspace({
+  project, ctx, tab, setTab,
+}: {
+  project: Startup;
+  ctx: Context;
+  tab: WorkspaceTab;
+  setTab: (value: WorkspaceTab) => void;
+}) {
+  const owner = project.owner_id === ctx.user.id;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileDetail, setMobileDetail] = useState(false);
+  useTelegramBack(
+    tab === "responses" && mobileDetail,
+    () => setMobileDetail(false),
+    60,
+  );
+  const [statusFilter, setStatusFilter] = useState("");
+  const incoming = useData(
+    () => all<Application>("/startups/" + project.id + "/applications"),
+    [project.id, ctx.revision],
+  );
+  const vacancies = useData(
+    () => all<Vacancy>("/startups/" + project.id + "/vacancies"),
+    [project.id, ctx.revision],
+  );
+  const invites = useData(
+    () => all<Offer>("/startups/" + project.id + "/offers"),
+    [project.id, ctx.revision],
+  );
+  const matchingApplications = (incoming.data || []).filter(
+    (app) => !statusFilter || app.status === statusFilter,
+  );
+  const selected = matchingApplications.find((app) => app.id === selectedId)
+    || matchingApplications[0];
+  const tabList: { id: WorkspaceTab; label: string; count?: number }[] = [
+    { id: "responses", label: "Отклики", count: incoming.data?.length },
+    { id: "vacancies", label: "Вакансии", count: vacancies.data?.length },
+    { id: "invites", label: "Приглашения", count: invites.data?.length },
+    { id: "team", label: "Команда" },
+    { id: "recruiters", label: "Рекрутеры" },
+    ...(owner ? [{ id: "settings" as const, label: "Настройки" }] : []),
+  ];
+  const changeTab = (value: WorkspaceTab) => {
+    setTab(value);
+    setSelectedId(null);
+    setMobileDetail(false);
+    setStatusFilter("");
+  };
+
+  return (
+    <>
+      <div className="cw-context">
+        <strong>{project.title}</strong>
+        <Status value={project.status} />
+        <span className="cw-owner">{owner ? "Вы основатель" : "Вы рекрутер"}</span>
+      </div>
+      <div className="cw-tabs" role="tablist" aria-label="Управление проектом">
+        {tabList.map((item) => (
+          <button
+            key={item.id}
+            id={"cw-tab-" + item.id}
+            role="tab"
+            type="button"
+            aria-selected={item.id === tab}
+            aria-controls={"cw-panel-" + item.id}
+            tabIndex={item.id === tab ? 0 : -1}
+            onClick={() => changeTab(item.id)}
+          >
+            {item.label}{item.count !== undefined ? " · " + item.count : ""}
+          </button>
+        ))}
+      </div>
+      <div
+        id={"cw-panel-" + tab}
+        role="tabpanel"
+        aria-labelledby={"cw-tab-" + tab}
+        className="cw-panel"
+      >
+        {tab === "responses" && (
+          <>
+            <DataState {...incoming} />
+            {incoming.data && incoming.data.length > 0 && (
+              <div className={"cw-candidates" + (mobileDetail ? " cw-show-detail" : "")}>
+                <div className="cw-candidate-list" aria-label="Входящие отклики">
+                  <select
+                    aria-label="Статус отклика"
+                    value={statusFilter}
+                    onChange={(event) => {
+                      setStatusFilter(event.target.value);
+                      setSelectedId(null);
+                      setMobileDetail(false);
+                    }}
+                  >
+                    <option value="">Все отклики</option>
+                    {Array.from(new Set(incoming.data.map((app) => app.status))).map((status) => (
+                      <option value={status} key={status}>{labels[status] || status}</option>
+                    ))}
+                  </select>
+                  {matchingApplications.map((app) => (
+                    <button
+                      type="button"
+                      className="cw-candidate-button"
+                      aria-pressed={selected?.id === app.id}
+                      key={app.id}
+                      onClick={() => { setSelectedId(app.id); setMobileDetail(true); }}
+                    >
+                      <strong>{app.applicant_name || "Кандидат"}</strong>
+                      <span>{app.vacancy_title || "Общий отклик"} · {app.startup_title}</span>
+                      <small>{labels[app.status] || app.status}</small>
+                    </button>
+                  ))}
+                  {!matchingApplications.length && (
+                    <p className="cw-muted" style={{padding:20}}>Нет откликов с таким статусом.</p>
+                  )}
+                </div>
+                <div className="cw-candidate-detail" aria-label="Подробности кандидата">
+                  <button type="button" className="cw-mobile-back" onClick={() => setMobileDetail(false)}>
+                    <ArrowLeft size={16} aria-hidden="true" /> К списку откликов
+                  </button>
+                  {selected ? (
+                    <ApplicationCard key={selected.id} application={selected} ctx={ctx} manager={true} />
+                  ) : (
+                    <p className="cw-muted">Выберите отклик.</p>
+                  )}
+                </div>
+              </div>
+            )}
+            {incoming.data?.length === 0 && (
+              <CompleteEmpty
+                title="Пока нет откликов"
+                description="Отклики на вакансии и общие обращения появятся здесь."
+              />
+            )}
+          </>
+        )}
+        {tab === "vacancies" && (
+          <>
+            <div className="cw-panel-head">
+              <h2>Вакансии проекта</h2>
+              {project.status === "active" && (
+                <button className="cw-button primary" disabled={ctx.busy} onClick={() => openCreateVacancy(ctx, project.id)}>
+                  Добавить вакансию
+                </button>
+              )}
+            </div>
+            <DataState {...vacancies} />
+            {vacancies.data?.map((vacancy) => (
+              <VacancyView key={vacancy.id} initial={vacancy} ctx={ctx} manage={true} />
+            ))}
+            {vacancies.data?.length === 0 && (
+              <CompleteEmpty
+                title="Кого ищет ваша команда?"
+                description="Добавьте первую вакансию с требованиями, количеством мест и сроком приёма."
+              />
+            )}
+          </>
+        )}
+        {tab === "invites" && (
+          <>
+            <h2>Приглашения в команду</h2>
+            <DataState {...invites} />
+            {invites.data?.map((offer) => (
+              <OfferCard key={offer.id} offer={offer} ctx={ctx} manager={true} />
+            ))}
+            {invites.data?.length === 0 && (
+              <CompleteEmpty title="Приглашений пока нет" description="Здесь появятся отправленные кандидатам предложения." />
+            )}
+          </>
+        )}
+        {tab === "team" && (
+          <>
+            <h2>Состав команды</h2>
+            <p className="cw-muted">Членство возникает после принятия приглашения кандидатом. История выхода сохраняется.</p>
+            <Team startupId={project.id} owner={owner} ctx={ctx} />
+          </>
+        )}
+        {tab === "recruiters" && (
+          <>
+            <h2>Рекрутеры</h2>
+            <p className="cw-muted">Полномочия рекрутера не равны членству в команде.</p>
+            <Recruiters startupId={project.id} owner={owner} active={project.status === "active"} ctx={ctx} />
+          </>
+        )}
+        {tab === "settings" && owner && (
+          <ProjectSettingsPanel
+            project={project}
+            busy={ctx.busy}
+            onSave={(values) => ctx.perform(async () => {
+              await api("/startups/" + project.id, "PATCH", {
+                title: values.title,
+                description: values.description,
+                allow_general_applications: values.allowGeneral,
+              }, project.revision);
+            })}
+            onPause={() => void ctx.perform(async () => {
+              await api(
+                "/startups/" + project.id + "/" + (project.status === "active" ? "pause" : "resume"),
+                "POST", undefined, project.revision,
+              );
+            })}
+            onArchive={() => ctx.form({
+              title: "Архивировать проект?",
+              notice: "Ожидающие приглашения будут отозваны. Восстановление невозможно.",
+              fields: [],
+              submit: async () => {
+                await api("/startups/" + project.id + "/archive", "POST", undefined, project.revision);
+              },
+            })}
+          />
+        )}
+      </div>
+    </>
+  );
+}
+
+function Cabinet({ ctx }: { ctx: Context }) {
   const managed = useData(
     () => all<Startup>("/startups?scope=managed"),
     [ctx.user.id, ctx.revision],
+    true,
   );
-  const teams = useData(
-    () => all<Startup>("/startups?scope=member"),
-    [ctx.user.id, ctx.revision],
+  const [projectId, setProjectId] = useState("");
+  // Keep the selected workspace tab when revision refresh temporarily
+  // unmounts ProjectWorkspace while /startups?scope=managed is loading.
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("responses");
+  const selected = managed.data?.find((p) => p.id === projectId) || managed.data?.[0];
+
+  return (
+    <div className="complete-workspace">
+      <div className="cw-heading">
+        <div>
+          <h1>Кабинет</h1>
+          <p className="cw-subtitle">Проекты, кандидаты и люди вашей команды.</p>
+        </div>
+        <div className="cw-actions">
+          {selected && (
+            <label className="cw-project-picker">
+              <span>Проект</span>
+              <select aria-label="Управляемый проект" value={selected.id}
+                onChange={(event) => {
+                  setProjectId(event.target.value);
+                  setWorkspaceTab("responses");
+                }}>
+                {managed.data?.map((p) => (
+                  <option value={p.id} key={p.id}>
+                    {p.title} · {labels[p.status] || p.status}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button className="cw-button primary" disabled={ctx.busy} onClick={() => openCreateProject(ctx)}>
+            <Plus size={16} aria-hidden="true" /> Новый проект
+          </button>
+        </div>
+      </div>
+      <DataState {...managed} />
+      {!selected && managed.data && (
+        <CompleteEmpty
+          title="Здесь будут ваши проекты"
+          description="Создайте стартап или примите приглашение стать рекрутером. Отклики, личный профиль и уведомления находятся в отдельных разделах."
+          action={<button className="cw-button primary" disabled={ctx.busy} onClick={() => openCreateProject(ctx)}>
+            Создать первый проект
+          </button>}
+        />
+      )}
+      {selected && <ProjectWorkspace key={selected.id} project={selected} ctx={ctx} tab={workspaceTab} setTab={setWorkspaceTab} />}
+    </div>
   );
+}
+
+function ApplicationsScreen({ ctx }: { ctx: Context }) {
   const applications = useData(
-    () => all<Application>("/applications/mine"),
-    [ctx.user.id, ctx.revision],
+    () => all<Application>("/applications/mine"), [ctx.user.id, ctx.revision],
   );
   const offers = useData(
-    () => all<Offer>("/offers/mine"),
-    [ctx.user.id, ctx.revision],
+    () => all<Offer>("/offers/mine"), [ctx.user.id, ctx.revision],
   );
   const invitations = useData(
-    () => all<Invitation>("/recruiter-invitations/mine"),
-    [ctx.user.id, ctx.revision],
-  );
-  const notifications = useData(
-    () => all<Notification>("/notifications"),
-    [ctx.user.id, ctx.revision],
+    () => all<Invitation>("/recruiter-invitations/mine"), [ctx.user.id, ctx.revision],
   );
   return (
-    <>
-      <div className="pagehead">
+    <div className="complete-workspace cw-applications">
+      <div className="cw-heading">
         <div>
-          <div className="eyebrow">Профиль / Личный кабинет</div>
-          <h1>Привет, {ctx.user.name}.</h1>
-          <p>{ctx.user.bio || "Расскажите о себе в профиле."}</p>
-          <p>{ctx.user.skills.join(", ")}</p>
-          {ctx.user.portfolio_url && (
-            <a href={ctx.user.portfolio_url} target="_blank" rel="noreferrer">
-              Портфолио
-            </a>
+          <h1>Мои отклики</h1>
+          <p className="cw-subtitle">Решения команд, приглашения и история ваших заявок.</p>
+        </div>
+        <button type="button" className="text-button cw-related-link" onClick={ctx.showTeams}>
+          Мои команды →
+        </button>
+      </div>
+      <section className="cw-applications-section cw-applications-first">
+        <h2 className="cw-list-title">Приглашения в команду</h2>
+      <DataState {...offers} />
+      {offers.data?.map((offer) => (
+        <OfferCard key={offer.id} offer={offer} ctx={ctx} manager={false} />
+      ))}
+      {offers.data?.length === 0 && (
+        <p className="cw-muted">Приглашений пока нет. Когда команда примет решение, оно появится здесь.</p>
+      )}
+      </section>
+      <section className="cw-applications-section">
+        <h2 className="cw-list-title">Отправленные отклики</h2>
+      <DataState {...applications} />
+      {applications.data?.map((app) => (
+        <ApplicationCard key={app.id} application={app} ctx={ctx} manager={false} />
+      ))}
+      {applications.data?.length === 0 && (
+        <CompleteEmpty
+          title="Откликов пока нет"
+          description="Выберите проект и расскажите команде о себе."
+          action={<button type="button" className="cw-button primary" onClick={ctx.showProjects}>
+            Найти проект
+          </button>}
+        />
+      )}
+      </section>
+      <section className="cw-applications-section">
+        <h2 className="cw-list-title">Рекрутерские приглашения</h2>
+      <DataState {...invitations} />
+      {invitations.data?.map((inv) => (
+        <div className="cw-entry" key={inv.id}>
+          <h3><ProjectName id={inv.startup_id} /></h3>
+          <p>Действует до {dateTime(inv.expires_at)}</p>
+          <Status value={inv.status} />
+          {inv.status === "pending" && new Date(inv.expires_at) > new Date() && (
+            <div className="cw-actions">
+              {(["accept", "decline"] as const).map((action) => (
+                <button className="cw-button" disabled={ctx.busy} key={action}
+                  onClick={() => void ctx.perform(async () => {
+                    await api("/recruiter-invitations/" + inv.id + "/" + action, "POST");
+                  })}>
+                  {action === "accept" ? "Принять полномочия" : "Отказаться"}
+                </button>
+              ))}
+            </div>
           )}
         </div>
-        <button
-          className="outline"
-          onClick={() =>
-            ctx.form({
+      ))}
+      {invitations.data?.length === 0 && <p className="cw-muted">Новых приглашений нет.</p>}
+      </section>
+    </div>
+  );
+}
+
+function TeamsScreen({ ctx }: { ctx: Context }) {
+  const teams = useData(
+    () => all<Startup>("/startups?scope=member"), [ctx.user.id, ctx.revision],
+  );
+  return (
+    <div className="complete-workspace">
+      <div className="cw-heading">
+        <div><h1>Мои команды</h1>
+          <p className="cw-subtitle">Проекты, в которых вы сейчас состоите.</p>
+        </div>
+      </div>
+      <DataState {...teams} />
+      {teams.data?.map((p) => (
+        <div className="cw-entry" key={p.id}>
+          <h3>{p.title}</h3>
+          <p>{p.description || "Описание не указано"}</p>
+          <button className="cw-button" onClick={() => ctx.open(p)}>Открыть проект</button>
+        </div>
+      ))}
+      {teams.data?.length === 0 && (
+        <CompleteEmpty title="Вы пока не состоите в командах"
+          description="После принятия приглашения команда появится здесь." />
+      )}
+    </div>
+  );
+}
+
+function ProfileScreen({
+  ctx, updateUser,
+}: {
+  ctx: Context;
+  updateUser: (person: Person) => void;
+}) {
+  const initials = ctx.user.name.split(/\s+/).filter(Boolean)
+    .slice(0, 2).map((name) => name[0]?.toUpperCase()).join("");
+  return (
+    <div className="complete-workspace">
+      <div className="cw-heading">
+        <div><h1>Мой профиль</h1>
+          <p className="cw-subtitle">Информация, которую вы показываете участникам и командам.</p>
+        </div>
+      </div>
+      <div className="cw-profile-layout">
+        <aside className="cw-profile-summary">
+          <span className="cw-avatar" aria-hidden="true">{initials}</span>
+          <h2>{ctx.user.name}</h2>
+          <p>Участник Бизнес-клуба</p>
+        </aside>
+        <section className="cw-profile-fields">
+          <h2>О себе</h2>
+          <p>{ctx.user.bio || "Расскажите о себе."}</p>
+          <h3>Навыки</h3>
+          <p>{ctx.user.skills.length ? ctx.user.skills.join(", ") : "Пока не указаны."}</p>
+          {ctx.user.portfolio_url && <p><a href={ctx.user.portfolio_url} target="_blank" rel="noreferrer">
+            Портфолио ↗
+          </a></p>}
+          <button className="cw-button primary" disabled={ctx.busy}
+            onClick={() => ctx.form({
               title: "Мой профиль",
               values: {
                 name: ctx.user.name,
@@ -1210,174 +1847,69 @@ function Cabinet({
                 portfolio_url: ctx.user.portfolio_url || "",
               },
               fields: [
-                text("name", "Имя", true),
-                area("bio", "О себе"),
+                text("name", "Имя", true), area("bio", "О себе"),
                 text("skills", "Навыки через запятую"),
                 { name: "portfolio_url", label: "Портфолио", type: "url" },
               ],
               submit: async (values) => {
-                updateUser(
-                  await api<Person>("/users/me", "PATCH", {
-                    name: values.name,
-                    bio: values.bio,
-                    skills: values.skills
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean),
-                    portfolio_url: values.portfolio_url || null,
-                  }),
-                );
+                updateUser(await api<Person>("/users/me", "PATCH", {
+                  name: values.name,
+                  bio: values.bio,
+                  skills: values.skills.split(",").map((skill) => skill.trim()).filter(Boolean),
+                  portfolio_url: values.portfolio_url || null,
+                }));
               },
-            })
-          }
-        >
-          Редактировать профиль
-        </button>
-      </div>
-      <div className="cabinet-grid">
-        <section className="panel">
-          <h2>Мои проекты и подбор</h2>
-          <DataState {...managed} />
-          {managed.data?.map((p) => (
-            <div className="line" key={p.id}>
-              <button className="text-button" onClick={() => ctx.open(p)}>
-                {p.title}
-              </button>
-              <Status value={p.status} />
-            </div>
-          ))}
-          {managed.data?.length === 0 && (
-            <p className="muted">
-              У вас пока нет своих проектов или полномочий рекрутера.
-            </p>
-          )}
-        </section>
-        <section className="panel">
-          <h2>Мои команды</h2>
-          <DataState {...teams} />
-          {teams.data?.map((p) => (
-            <div className="line" key={p.id}>
-              <button className="text-button" onClick={() => ctx.open(p)}>
-                {p.title}
-              </button>
-              <Status value={p.status} />
-            </div>
-          ))}
-          {teams.data?.length === 0 && (
-            <p className="muted">Вы пока не состоите в командах.</p>
-          )}
-        </section>
-        <section className="panel wide">
-          <h2>Отправленные отклики</h2>
-          <DataState {...applications} />
-          {applications.data?.map((a) => (
-            <ApplicationCard
-              key={a.id}
-              application={a}
-              ctx={ctx}
-              manager={false}
-            />
-          ))}
-          {applications.data?.length === 0 && (
-            <p className="muted">Вы ещё не откликались.</p>
-          )}
-        </section>
-        <section className="panel wide">
-          <h2>Приглашения в команду</h2>
-          <DataState {...offers} />
-          {offers.data?.map((offer) => (
-            <OfferCard key={offer.id} offer={offer} ctx={ctx} manager={false} />
-          ))}
-          {offers.data?.length === 0 && (
-            <p className="muted">Приглашений пока нет.</p>
-          )}
-        </section>
-        <section className="panel wide">
-          <h2>Полученные отклики</h2>
-          <DataState {...managed} />
-          {managed.data?.map((p) => (
-            <div className="section" key={p.id}>
-              <h3>
-                <button className="text-button" onClick={() => ctx.open(p)}>
-                  {p.title}
-                </button>
-              </h3>
-              <ManagedApplications startupId={p.id} ctx={ctx} />
-            </div>
-          ))}
-          {managed.data?.length === 0 && (
-            <p className="muted">Здесь появятся заявки на ваши проекты.</p>
-          )}
-        </section>
-        <section className="panel">
-          <h2>Приглашения рекрутером</h2>
-          <DataState {...invitations} />
-          {invitations.data?.map((inv) => (
-            <div className="history-item" key={inv.id}>
-              <ProjectName id={inv.startup_id} />
-              <p>До {dateTime(inv.expires_at)}</p>
-              <Status value={inv.status} />
-              {inv.status === "pending" &&
-                new Date(inv.expires_at) > new Date() && (
-                  <div className="actions wrap">
-                    {["accept", "decline"].map((action) => (
-                      <button
-                        disabled={ctx.busy}
-                        className="outline"
-                        key={action}
-                        onClick={() =>
-                          void ctx.perform(async () => {
-                            await api(
-                              `/recruiter-invitations/${inv.id}/${action}`,
-                              "POST",
-                            );
-                          })
-                        }
-                      >
-                        {action === "accept"
-                          ? "Принять полномочия"
-                          : "Отказаться"}
-                      </button>
-                    ))}
-                  </div>
-                )}
-            </div>
-          ))}
-          {invitations.data?.length === 0 && (
-            <p className="muted">Приглашений рекрутером пока нет.</p>
-          )}
-        </section>
-        <section className="panel">
-          <h2>Уведомления</h2>
-          <DataState {...notifications} />
-          {notifications.data
-            ?.sort((a, b) => b.created_at.localeCompare(a.created_at))
-            .map((n) => (
-              <div className="history-item" key={n.id}>
-                <strong>{n.title}</strong>
-                <p>{n.message}</p>
-                <p className="muted">{dateTime(n.created_at)}</p>
-                {!n.read_at && (
-                  <button
-                    className="outline"
-                    disabled={ctx.busy}
-                    onClick={() =>
-                      void ctx.perform(async () => {
-                        await api(`/notifications/${n.id}/read`, "PATCH");
-                      })
-                    }
-                  >
-                    Прочитано
-                  </button>
-                )}
-              </div>
-            ))}
-          {notifications.data?.length === 0 && (
-            <p className="muted">Уведомлений пока нет.</p>
-          )}
+            })}>
+            Редактировать профиль
+          </button>
         </section>
       </div>
-    </>
+    </div>
+  );
+}
+
+function NotificationsScreen({ ctx }: { ctx: Context }) {
+  const notifications = useData(
+    () => all<Notification>("/notifications"), [ctx.user.id, ctx.revision],
+  );
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const ordered = [...(notifications.data || [])]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const unread = ordered.filter((n) => !n.read_at).length;
+  const visible = unreadOnly ? ordered.filter((n) => !n.read_at) : ordered;
+  return (
+    <div className="complete-workspace">
+      <div className="cw-heading">
+        <div><h1>Уведомления</h1>
+          <p className="cw-subtitle">События, адресованные вашему аккаунту.</p>
+        </div>
+        <div className="cw-actions">
+          <label className="cw-project-picker">
+            <input type="checkbox" checked={unreadOnly}
+              onChange={(event) => setUnreadOnly(event.target.checked)} />
+            Только непрочитанные
+          </label>
+          <span className="cw-muted">Непрочитанных: {unread}</span>
+        </div>
+      </div>
+      <DataState {...notifications} />
+      {visible.map((item) => (
+        <article className={"cw-notification" + (!item.read_at ? " unread" : "")} key={item.id}>
+          <div>
+            <h3>{item.title}</h3>
+            <p>{item.message}</p>
+            <time dateTime={item.created_at}>{dateTime(item.created_at)}</time>
+          </div>
+          {!item.read_at && <button className="cw-button" disabled={ctx.busy}
+            onClick={() => void ctx.perform(async () => {
+              await api("/notifications/" + item.id + "/read", "PATCH");
+            })}>Прочитано</button>}
+        </article>
+      ))}
+      {notifications.data && visible.length === 0 &&
+        <CompleteEmpty title={unreadOnly ? "Всё прочитано" : "Уведомлений пока нет"}
+          description={unreadOnly ? "Новых уведомлений нет." : "Важные события появятся здесь."} />}
+    </div>
   );
 }
 function ProjectName({ id }: { id: string }) {
@@ -1424,8 +1956,14 @@ function ApplicationCard({
   ctx: Context;
   manager: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(manager);
   const own = a.applicant_id === ctx.user.id;
+  const candidate = useData(
+    () => manager
+      ? api<Person>("/users/" + a.applicant_id)
+      : Promise.resolve(undefined),
+    [a.applicant_id, manager, ctx.user.id, ctx.revision],
+  );
   const membership = useData(
     () =>
       own && ["joined", "already_joined"].includes(a.status)
@@ -1434,26 +1972,47 @@ function ApplicationCard({
     [a.id, a.status, ctx.revision],
   );
   return (
-    <article className="history-item">
-      <div className="row">
-        <div>
-          <strong>
-            {a.startup_title} · {a.vacancy_title || "Общий отклик"}
-          </strong>
-          <p>{a.applicant_name}</p>
+    <article className={"cw-record cw-application-record" + (manager ? " cw-manager-record" : "")}>
+      <header className="cw-record-heading">
+        <div className="cw-record-identity">
+          <p className="cw-record-eyebrow">{a.startup_title}</p>
+          <h3>{manager ? a.applicant_name : a.vacancy_title || "Общий отклик"}</h3>
+          {manager && <p className="cw-record-role">{a.vacancy_title || "Общий отклик"}</p>}
+          <p className="cw-record-preview prewrap">{a.message || "Без сопроводительного сообщения"}</p>
         </div>
         <Status value={a.status} />
-      </div>
-      <p className="prewrap">
-        {a.message || "Без сопроводительного сообщения"}
-      </p>
-      {a.rejection_reason && (
-        <p>
-          <strong>Причина решения:</strong> {a.rejection_reason}
-        </p>
+      </header>
+      {manager && (
+        <section className="cw-candidate-profile">
+          <h4>О кандидате</h4>
+          {candidate.error && <p className="cw-muted">Не удалось загрузить профиль кандидата.</p>}
+          {candidate.data ? (
+            <>
+              <p className="prewrap">{candidate.data.bio || "Описание пока не заполнено."}</p>
+              <dl className="cw-candidate-facts">
+                <dt>Навыки</dt>
+                <dd>{candidate.data.skills.length ? candidate.data.skills.join(", ") : "Не указаны"}</dd>
+                <dt>Портфолио</dt>
+                <dd>
+                  {candidate.data.portfolio_url ? (
+                    <a href={candidate.data.portfolio_url} target="_blank" rel="noopener noreferrer">
+                      Открыть портфолио ↗
+                    </a>
+                  ) : "Не добавлено"}
+                </dd>
+              </dl>
+            </>
+          ) : !candidate.error && <p className="cw-muted">Загрузка профиля…</p>}
+        </section>
       )}
-      <div className="actions wrap">
-        <button className="outline" onClick={() => setExpanded(!expanded)}>
+      {a.rejection_reason && (
+        <div className="cw-record-reason">
+          <strong>Причина решения</strong>
+          <p className="prewrap">{a.rejection_reason}</p>
+        </div>
+      )}
+      <div className="cw-record-actions actions wrap">
+        <button type="button" className="outline" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
           {expanded ? "Скрыть историю" : "История и тестовое"}
         </button>
         {manager && !own && ["pending", "reviewing"].includes(a.status) && (
@@ -1629,8 +2188,8 @@ function ApplicationDetails({
   );
   const latest = tests.data?.slice().sort((x, y) => y.version - x.version)[0];
   return (
-    <div className="details-body">
-      <h4>Попытки и условия</h4>
+    <div className="cw-record-detail details-body">
+      <section className="cw-record-section"><h4>Попытки и условия</h4>
       <DataState {...attempts} />
       {attempts.data
         ?.sort((x, y) => x.created_at.localeCompare(y.created_at))
@@ -1657,8 +2216,9 @@ function ApplicationDetails({
             )}
           </div>
         ))}
+      </section>
       {a.vacancy_id && (
-        <>
+        <section className="cw-record-section">
           <h4>Тестовое задание и решения</h4>
           <DataState {...tests} />
           {latest ? (
@@ -1742,20 +2302,24 @@ function ApplicationDetails({
               )}
             </div>
           ))}
-        </>
+        </section>
       )}
-      <h4>События</h4>
+      <section className="cw-record-section"><h4>События</h4>
       <DataState {...events} />
-      {events.data
-        ?.sort((x, y) => x.created_at.localeCompare(y.created_at))
-        .map((e) => (
-          <p key={e.id}>
-            {dateTime(e.created_at)} ·{" "}
-            {eventLabels[e.event_type] || "Изменение в проекте"}
-            {e.actor_name ? " · " + e.actor_name : ""}
-            {e.metadata?.reason ? " · " + e.metadata.reason : ""}
-          </p>
-        ))}
+      <ol className="cw-timeline">
+        {events.data
+          ?.slice()
+          .sort((x, y) => x.created_at.localeCompare(y.created_at))
+          .map((e) => (
+            <li key={e.id}>
+              <time dateTime={e.created_at}>{dateTime(e.created_at)}</time>
+              <strong>{eventLabels[e.event_type] || "Изменение в проекте"}</strong>
+              {e.actor_name && <p>{e.actor_name}</p>}
+              {e.metadata?.reason && <p className="prewrap">{e.metadata.reason}</p>}
+            </li>
+          ))}
+      </ol>
+      </section>
     </div>
   );
 }
@@ -1770,19 +2334,17 @@ function OfferCard({
 }) {
   const own = o.candidate_id === ctx.user.id;
   return (
-    <article className="history-item">
-      <div className="row">
-        <strong>
-          {o.startup_title} · {o.vacancy_title || "Общее приглашение"}
-        </strong>
+    <article className="cw-record cw-offer-record">
+      <header className="cw-record-heading">
+        <div className="cw-record-identity">
+          <p className="cw-record-eyebrow">{o.startup_title}</p>
+          <h3>{o.vacancy_title || "Общее приглашение"}</h3>
+          {manager && <p className="cw-record-role">Кандидат: <PersonName id={o.candidate_id} /></p>}
+          <p className="cw-record-preview prewrap">{o.message}</p>
+          <p className="cw-record-role">Ответить до {dateTime(o.expires_at)}</p>
+        </div>
         <Status value={o.status} />
-      </div>
-      {manager && (
-        <p>
-          Кандидат: <PersonName id={o.candidate_id} />
-        </p>
-      )}
-      <p className="prewrap">{o.message}</p>
+      </header>
       {o.vacancy_title && (
         <details>
           <summary>Условия именно этого приглашения</summary>
@@ -1790,9 +2352,8 @@ function OfferCard({
           <p>{o.vacancy_requirements}</p>
         </details>
       )}
-      <p className="muted">Действует до {dateTime(o.expires_at)}</p>
       {o.status === "pending" && (
-        <div className="actions wrap">
+        <div className="cw-record-actions actions wrap">
           {own &&
             ["accept", "decline"].map((action) => (
               <button
@@ -1855,10 +2416,8 @@ function Team({
     <>
       <DataState {...members} />
       {members.data?.map((m) => (
-        <div className="history-item" key={m.id}>
-          <strong>
-            <PersonName id={m.user_id} />
-          </strong>
+        <div className="cw-record cw-member-record" key={m.id}>
+          <h3><PersonName id={m.user_id} /></h3>
           <p>
             Вступление: {dateTime(m.joined_at)}
             {m.left_at ? " · Выход: " + dateTime(m.left_at) : " · В команде"}
@@ -1937,11 +2496,17 @@ function Recruiters({
   const [query, setQuery] = useState(""),
     [found, setFound] = useState<Person[]>(),
     [error, setError] = useState("");
+  const searchSequence = useRef(0);
+  useEffect(() => {
+    searchSequence.current += 1;
+    setFound(undefined);
+    setError("");
+  }, [startupId]);
   return (
     <>
       <DataState {...grants} />
       {grants.data?.map((g) => (
-        <div className="line" key={g.id}>
+        <div className="cw-recruiter-row" key={g.id}>
           <PersonName id={g.user_id} />
           {owner && (
             <button
@@ -1974,10 +2539,17 @@ function Recruiters({
           className="search-form"
           onSubmit={(e) => {
             e.preventDefault();
+            const currentSearch = ++searchSequence.current;
+            setFound(undefined);
             setError("");
             void all<Person>("/users?query=" + encodeURIComponent(query))
-              .then(setFound)
-              .catch((e) => setError(e.message));
+              .then((results) => {
+                if (currentSearch === searchSequence.current) setFound(results);
+              })
+              .catch((e) => {
+                if (currentSearch === searchSequence.current)
+                  setError(e instanceof Error ? e.message : "Ошибка поиска");
+              });
           }}
         >
           <label>
@@ -1986,7 +2558,11 @@ function Recruiters({
               minLength={2}
               required
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                searchSequence.current += 1;
+                setFound(undefined);
+                setQuery(e.target.value);
+              }}
             />
           </label>
           <button className="outline">Найти</button>
@@ -1996,7 +2572,7 @@ function Recruiters({
       {found
         ?.filter((p) => p.id !== ctx.user.id)
         .map((person) => (
-          <div className="line" key={person.id}>
+          <div className="cw-recruiter-row" key={person.id}>
             <span>{person.name}</span>
             <button
               className="outline"
@@ -2025,10 +2601,10 @@ function Recruiters({
       {found?.length === 0 && <p className="muted">Участники не найдены.</p>}
       {owner && (
         <>
-          <h4>Отправленные приглашения рекрутеров</h4>
+          <h4 className="cw-recruiter-subheading">Отправленные приглашения рекрутеров</h4>
           <DataState {...invitations} />
           {invitations.data?.map((inv) => (
-            <div className="history-item" key={inv.id}>
+            <div className="cw-recruiter-row cw-recruiter-invite" key={inv.id}>
               <PersonName id={inv.user_id} />
               <p>До {dateTime(inv.expires_at)}</p>
               <Status value={inv.status} />

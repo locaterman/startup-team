@@ -1,0 +1,238 @@
+
+/* Real-data workspace using the approved complete dark visual language.
+   Scoped to avoid changing unmigrated project-detail flows. */
+.integrated-design-page .integrated-content { max-width: 1200px; }
+.complete-workspace {
+  --cw-bg:#0b1322; --cw-surface:#101d30; --cw-hover:#182942;
+  --cw-text:#eef2f8; --cw-muted:#92a4bd; --cw-secondary:#b1bed0;
+  --cw-line:#263b53; --cw-accent:#aac9ff;
+  color:var(--cw-text); font:14px/1.7 Manrope,"Segoe UI",sans-serif; min-width:0;
+}
+.complete-workspace * {min-width:0}
+.complete-workspace h1,.complete-workspace h2,.complete-workspace h3,
+.complete-workspace p {margin:0}
+.complete-workspace h1 {font-size:clamp(29px,4vw,36px);line-height:1.25;letter-spacing:-1.4px;font-weight:450}
+.complete-workspace h2 {font-size:22px;font-weight:500;letter-spacing:-.5px;color:var(--cw-text)}
+.complete-workspace h3 {font-size:16px;font-weight:550;color:var(--cw-text)}
+.complete-workspace button:focus-visible,.complete-workspace select:focus-visible {
+  outline:2px solid #b9d2ff;outline-offset:3px
+}
+.complete-workspace .cw-heading {
+  display:flex;align-items:end;justify-content:space-between;gap:20px;
+  flex-wrap:wrap;padding:0 0 30px;border-bottom:1px solid var(--cw-line)
+}
+.complete-workspace .cw-subtitle {color:var(--cw-muted);font-size:13px;margin-top:10px}
+.complete-workspace .cw-actions {display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.complete-workspace .cw-button, .complete-workspace .outline,
+.complete-workspace .primary, .complete-workspace .text-button {
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:9px 16px;min-height:44px;white-space:normal;text-align:center;
+  font:550 13px/1.5 Manrope,"Segoe UI",sans-serif;
+  border:1px solid #3d526d;border-radius:4px;background:transparent;color:var(--cw-text);
+  cursor:pointer;box-shadow:none
+}
+.complete-workspace .cw-button:hover,.complete-workspace .outline:hover,
+.complete-workspace .text-button:hover {background:var(--cw-hover);color:var(--cw-accent)}
+.complete-workspace .cw-button.primary,.complete-workspace .primary {
+  background:#3a67c7;border-color:#3a67c7;color:#fff
+}
+.complete-workspace .cw-button.primary:hover,.complete-workspace .primary:hover {background:#4977d4}
+.complete-workspace button:disabled {opacity:.55;cursor:default}
+.complete-workspace .cw-project-picker {display:flex;align-items:center;gap:9px;font-size:13px;color:var(--cw-secondary)}
+.complete-workspace select,.complete-workspace .search-form input {
+  font:inherit;background:var(--cw-surface);border:1px solid var(--cw-line);
+  color:var(--cw-text);border-radius:4px;min-height:44px;padding:8px 12px;max-width:100%
+}
+.complete-workspace .cw-context {
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:25px 0 20px
+}
+.complete-workspace .cw-context strong {font-size:18px;font-weight:550}
+.complete-workspace .cw-context .cw-owner {margin-left:auto;font-size:12px;color:var(--cw-secondary)}
+.complete-workspace .cw-tabs {display:flex;gap:24px;overflow-x:auto;border-bottom:1px solid var(--cw-line);scrollbar-width:thin}
+.complete-workspace .cw-tabs button {
+  border:0;border-bottom:2px solid transparent;background:transparent;color:var(--cw-muted);
+  flex:0 0 auto;min-width:max-content;min-height:48px;white-space:nowrap;
+  border-radius:0;padding:9px 0;cursor:pointer;font:500 13px Manrope,"Segoe UI",sans-serif
+}
+.complete-workspace .cw-tabs button[aria-selected=true] {color:var(--cw-text);border-bottom-color:var(--cw-accent)}
+.complete-workspace .cw-panel {padding:30px 0 50px;min-height:300px}
+.complete-workspace .cw-panel-head {display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:24px}
+.complete-workspace .cw-muted,.complete-workspace .muted {color:var(--cw-muted)!important;font-size:13px}
+.complete-workspace .cw-empty {border:1px solid var(--cw-line);padding:35px;background:var(--cw-surface);margin-top:25px}
+.complete-workspace .cw-empty p {color:var(--cw-secondary);margin:10px 0 20px}
+/* Approved complete/final workspace uses separate list and detail surfaces,
+   not the old bordered two-column card. */
+.complete-workspace .cw-candidates {
+  display:grid;grid-template-columns:minmax(230px,300px) minmax(0,1fr);
+  gap:44px;align-items:start;min-height:480px;
+}
+.complete-workspace .cw-candidate-list {
+  border-right:1px solid var(--cw-line);
+  padding-right:24px;min-height:480px;
+}
+.complete-workspace .cw-candidate-list select {
+  margin:0 0 14px;width:100%;border:0;
+  background:transparent;color:var(--cw-secondary);font-size:12px;
+}
+.complete-workspace .cw-candidate-button {
+  display:block;width:100%;min-height:108px;text-align:left;
+  padding:19px 16px;margin:0 0 8px;
+  background:transparent;color:var(--cw-text);
+  border:0;border-left:2px solid transparent;border-radius:0;
+  cursor:pointer;
+}
+.complete-workspace .cw-candidate-button:hover,
+.complete-workspace .cw-candidate-button[aria-pressed=true] {
+  color:var(--cw-text);background:var(--cw-surface);
+}
+.complete-workspace .cw-candidate-button[aria-pressed=true] {
+  border-left-color:#88aee7;
+}
+.complete-workspace .cw-candidate-button strong {display:block;font-size:14px;overflow-wrap:anywhere}
+.complete-workspace .cw-candidate-button > span {display:block;color:var(--cw-secondary);font-size:12px;margin-top:6px}
+.complete-workspace .cw-candidate-button > small {display:block;color:var(--cw-muted);font-size:11px;margin-top:6px}
+.complete-workspace .cw-candidate-detail {
+  padding:28px 34px 32px;min-width:0;
+  background:var(--cw-surface);border-radius:4px;
+}
+.complete-workspace .cw-entry {border-top:1px solid var(--cw-line);padding:22px 0}
+.complete-workspace .cw-entry:first-child {border-top:0;padding-top:0}
+.complete-workspace .cw-entry > h3 {margin-bottom:8px}
+.complete-workspace .cw-entry > p {color:var(--cw-secondary);margin:8px 0;overflow-wrap:anywhere}
+.complete-workspace .cw-entry > .actions,.complete-workspace .actions {display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0}
+.complete-workspace .line,.complete-workspace .history-item,
+.complete-workspace .panel,.complete-workspace .vacancy-block {
+  background:transparent;color:var(--cw-text);border:0;border-bottom:1px solid var(--cw-line);
+  border-radius:0;box-shadow:none;padding:20px 0;margin:0
+}
+.complete-workspace .panel.section {margin-top:20px}
+.complete-workspace .line {display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.complete-workspace .history-item p,.complete-workspace .panel p {color:var(--cw-secondary)}
+.complete-workspace .status {border-radius:4px;background:var(--cw-hover);color:var(--cw-accent)}
+.complete-workspace .status.red {color:#ffb7b7}
+.complete-workspace .status.green {color:#a9d3c1}
+.complete-workspace .details-body {background:var(--cw-surface);color:var(--cw-secondary);margin-top:12px}
+.complete-workspace details {color:var(--cw-secondary);margin:15px 0}
+.complete-workspace summary {cursor:pointer;color:var(--cw-accent);padding:9px 0}
+.complete-workspace .cw-list-title {font-size:20px!important;margin:32px 0 12px!important}
+.complete-workspace .cw-profile-layout {display:grid;grid-template-columns:minmax(180px,270px) minmax(0,1fr);gap:36px;padding-top:30px}
+.complete-workspace .cw-profile-summary,.complete-workspace .cw-profile-fields {padding:26px;border:1px solid var(--cw-line);background:var(--cw-surface)}
+.complete-workspace .cw-avatar {width:54px;height:54px;display:grid;place-items:center;margin-bottom:18px;background:var(--cw-hover);border:1px solid var(--cw-line);color:var(--cw-accent);font-size:17px}
+.complete-workspace .cw-profile-summary p {color:var(--cw-secondary);margin-top:10px}
+.complete-workspace .cw-profile-fields > p {color:var(--cw-secondary);margin:16px 0}
+.complete-workspace .cw-notification {border-bottom:1px solid var(--cw-line);padding:20px 0;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+.complete-workspace .cw-notification h3 {margin-bottom:5px}
+.complete-workspace .cw-notification p {color:var(--cw-secondary);margin:6px 0}
+.complete-workspace .cw-notification time {color:var(--cw-muted);font-size:11px}
+.complete-workspace .cw-notification.unread {border-left:3px solid var(--cw-accent);padding-left:16px}
+@media(max-width:800px) {
+  .complete-workspace .cw-candidates {grid-template-columns:1fr;gap:18px}
+  .complete-workspace .cw-candidate-list {border-right:0;border-bottom:1px solid var(--cw-line);min-height:0;padding-right:0}
+  .complete-workspace .cw-candidate-detail {padding:24px 22px}
+
+  .complete-workspace .cw-profile-layout {grid-template-columns:1fr}
+}
+@media(max-width:550px) {
+  .complete-workspace .cw-notification {grid-template-columns:1fr}
+  .complete-workspace .cw-candidate-detail {padding:20px}
+  .complete-workspace .cw-heading {align-items:start}
+  .complete-workspace .cw-context .cw-owner {width:100%;margin-left:0}
+  .complete-workspace .cw-empty {padding:22px}
+}
+
+/* Shared command dialogs still use the original, tested form/controller.
+   Re-skin rather than duplicate its CSRF/revision-aware save behavior. */
+.integrated-design-page .modal-cover {
+  background:rgba(2,7,17,.83);
+  backdrop-filter:blur(2px);
+}
+.integrated-design-page .modal {
+  background:#101d30;color:#eef2f8;border:1px solid #263b53;
+  box-shadow:0 22px 70px #0008;border-radius:4px;
+  padding:30px;max-height:min(94dvh,900px)
+}
+.integrated-design-page .modal-top h2 {
+  color:#eef2f8;font:500 24px/1.25 Manrope,"Segoe UI",sans-serif;letter-spacing:-.6px
+}
+.integrated-design-page .modal-top button {color:#b1bed0}
+.integrated-design-page .modal label,.integrated-design-page .modal > p {
+  color:#b1bed0;font:500 13px/1.6 Manrope,"Segoe UI",sans-serif
+}
+.integrated-design-page .modal input,.integrated-design-page .modal textarea,
+.integrated-design-page .modal select {
+  background:#0b1322;color:#eef2f8;border:1px solid #3d526d;
+  min-height:44px;padding:11px 13px;border-radius:4px;font:inherit
+}
+.integrated-design-page .modal textarea {min-height:110px}
+.integrated-design-page .modal .primary {
+  background:#3a67c7;border:1px solid #3a67c7;color:#fff;
+  border-radius:4px;font:550 13px Manrope,"Segoe UI",sans-serif;min-height:44px
+}
+.integrated-design-page .banner {
+  background:#14243b;border:1px solid #3d526d;color:#eef2f8;
+  border-radius:4px;font:13px Manrope,"Segoe UI",sans-serif
+}
+.integrated-design-page .banner.error {border-color:#805053;color:#ffc5c5}
+.integrated-design-page .banner button {color:inherit}
+.integrated-design-page .footer {color:#92a4bd}
+
+/* Live project details reuse the validated backend command handlers. */
+.complete-workspace .back {
+  display:inline-flex;align-items:center;gap:8px;min-height:44px;
+  background:transparent;color:var(--cw-accent);font:500 13px Manrope,"Segoe UI",sans-serif;
+  border:0;border-radius:0;padding:0;margin:0 0 16px;cursor:pointer
+}
+.complete-workspace .detail {
+  margin:10px 0 38px;background:var(--cw-surface);color:var(--cw-text);
+  border:1px solid var(--cw-line);padding:32px 34px;border-radius:4px
+}
+.complete-workspace .detail .eyebrow {
+  color:var(--cw-muted);font-weight:500;letter-spacing:1.5px;margin-bottom:10px
+}
+.complete-workspace .detail h1 {
+  font-size:clamp(29px,4vw,38px);color:var(--cw-text);font-weight:450;letter-spacing:-1.5px
+}
+.complete-workspace .detail > p {color:var(--cw-secondary);font-size:14px;line-height:1.8;margin:13px 0}
+.complete-workspace .detail .actions {gap:12px;margin-top:22px}
+.complete-workspace > h2 {margin:35px 0 15px}
+.complete-workspace .vacancy-list {display:flex;flex-direction:column;gap:0}
+.complete-workspace .vacancy-block {padding:27px 5px;background:transparent;border-bottom:1px solid var(--cw-line)}
+.complete-workspace .vacancy-block .row {display:flex;align-items:start;gap:24px;justify-content:space-between}
+.complete-workspace .vacancy-block h3 {
+  font-size:22px;font-weight:500;letter-spacing:-.6px;margin-bottom:8px
+}
+.complete-workspace .vacancy-block p {color:var(--cw-secondary);line-height:1.8;margin:10px 0}
+.complete-workspace .vacancy-block .primary {margin-top:15px}
+.complete-workspace .vacancy-block .status {display:inline-block;margin:4px 0}
+.complete-workspace .vacancy-block > details,.complete-workspace .vacancy-block details {margin:14px 0}
+.complete-workspace .panel.section h2 {margin:0 0 16px}
+.complete-workspace .panel h4 {font-weight:500;color:var(--cw-text);margin:18px 0}
+.complete-workspace .search-form input {width:100%}
+.complete-workspace .search-form button {align-self:end}
+.complete-workspace .empty {
+  background:var(--cw-surface);color:var(--cw-secondary);
+  border:1px solid var(--cw-line);border-radius:4px
+}
+.complete-workspace .error {background:transparent;color:#ffc5c5}
+.complete-workspace .history-item a {color:var(--cw-accent)}
+@media(max-width:600px) {
+  .complete-workspace .detail {padding:24px 18px}
+  .complete-workspace .vacancy-block .row {flex-direction:column}
+}
+
+/* A submitted application is a server-side state, not merely a pending click. */
+.integrated-design-page .vacancy-apply-actions {
+  display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:16px
+}
+.integrated-design-page .vacancy-apply-actions .vacancy-applied,
+.integrated-design-page .vacancy-apply-actions .vacancy-applied:disabled {
+  color:#aab7c8!important;
+  background:#293448!important;
+  border:1px solid #3b495d!important;
+  border-radius:4px!important;
+  opacity:1!important;
+  box-shadow:none!important;
+  cursor:not-allowed!important;
+  white-space:normal;
+}
+.integrated-design-page .vacancy-apply-actions .outline {margin-top:0}

@@ -1,0 +1,314 @@
+/*
+ * Real API-backed catalog and vacancies screens, adapted from
+ * design/prototypes/src/final/style.css and complete/style.css.
+ * All selectors are scoped: the remaining screens keep the working v0.5 layout.
+ */
+.integrated-design-page {
+  background: #0b1322;
+  color: #eef2f8;
+}
+.integrated-design-page .integrated-content {
+  width: 100%;
+  max-width: 1200px;
+  padding: 28px 28px 72px;
+}
+.integrated-design-page .footer {
+  color: #92a4bd;
+}
+.integrated-discovery {
+  --disc-bg: #0b1322;
+  --disc-panel: #101d30;
+  --disc-panel-hover: #182942;
+  --disc-text: #eef2f8;
+  --disc-secondary: #b1bed0;
+  --disc-muted: #92a4bd;
+  --disc-line: #263b53;
+  --disc-accent: #aac9ff;
+  font: 15px/1.65 Manrope, "Segoe UI", sans-serif;
+}
+.integrated-discovery * { min-width: 0; }
+.integrated-discovery h1,
+.integrated-discovery h2,
+.integrated-discovery h3,
+.integrated-discovery p { margin: 0; }
+.integrated-discovery button { font-family: inherit; }
+.integrated-discovery button:focus-visible,
+.integrated-discovery input:focus-visible,
+.integrated-discovery select:focus-visible {
+  outline: 2px solid #b9d2ff;
+  outline-offset: 3px;
+}
+.integrated-discovery-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 22px 28px;
+  margin: 14px 0 34px;
+}
+.integrated-discovery-head h1 {
+  font-weight: 450;
+  letter-spacing: -1.5px;
+  font-size: clamp(28px, 4vw, 36px);
+  line-height: 1.25;
+  color: var(--disc-text);
+}
+.integrated-discovery-description {
+  font-size: 13px;
+  color: var(--disc-muted);
+  margin-top: 10px !important;
+}
+.integrated-discovery-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.integrated-discovery-search {
+  min-height: 46px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--disc-panel);
+  color: var(--disc-muted);
+  width: min(280px, 100%);
+  border-radius: 4px;
+}
+.integrated-discovery-search:focus-within {
+  outline: 2px solid #b9d2ff;
+  outline-offset: 2px;
+}
+.integrated-discovery-search input {
+  width: 100%;
+  min-height: 44px;
+  color: var(--disc-text);
+  background: transparent;
+  border: 0;
+  outline: none;
+  box-shadow: none;
+  padding: 8px 0;
+  font: inherit;
+  font-size: 13px;
+}
+/* Focus belongs to the whole search control, not the inner input.
+   This selector must beat the global input:focus-visible rule; otherwise
+   two nested focus rings appear around the icon and text (reported bug). */
+.integrated-discovery .integrated-discovery-search input:focus-visible {
+  outline: none;
+  outline-offset: 0;
+  box-shadow: none;
+  border: 0;
+}
+.integrated-discovery-search input::placeholder { color: var(--disc-muted); }
+.integrated-discovery-search button {
+  border: 0;
+  background: transparent;
+  color: var(--disc-secondary);
+  padding: 4px;
+  cursor: pointer;
+}
+.integrated-discovery-filter-toggle,
+.integrated-discovery-reset {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--disc-secondary);
+  font-size: 13px;
+  padding: 10px 2px;
+  cursor: pointer;
+  min-height: 44px;
+}
+.integrated-discovery-primary,
+.integrated-discovery-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 17px;
+  min-height: 44px;
+  font: 550 13px Manrope, "Segoe UI", sans-serif;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.integrated-discovery-primary {
+  background: #3a67c7;
+  color: white;
+  border: 1px solid #3a67c7;
+}
+.integrated-discovery-secondary {
+  background: transparent;
+  color: var(--disc-text);
+  border: 1px solid #3d526d;
+}
+.integrated-discovery-primary:disabled,
+.integrated-discovery-secondary:disabled { opacity: 0.5; cursor: default; }
+.integrated-discovery-primary:hover:not(:disabled) { background: #4977d4; }
+.integrated-discovery-secondary:hover:not(:disabled) { background: #21344d; }
+.integrated-discovery-filters {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 18px 26px;
+  padding: 0 0 26px;
+  border-bottom: 1px solid var(--disc-line);
+}
+.integrated-discovery-filters label {
+  color: var(--disc-secondary);
+  font-size: 12px;
+}
+.integrated-discovery-role { display: flex; flex-direction: column; gap: 6px; }
+.integrated-discovery-role select {
+  width: min(300px, 100%);
+  min-height: 44px;
+  color: var(--disc-text);
+  background: var(--disc-panel);
+  border: 1px solid var(--disc-line);
+  border-radius: 4px;
+  padding: 9px 12px;
+}
+.integrated-discovery-check { display: flex; align-items: center; gap: 9px; min-height: 44px; }
+.integrated-discovery-check input { width: 16px; height: 16px; accent-color: #aac9ff; min-height: 0; }
+.integrated-discovery-status {
+  color: var(--disc-secondary);
+  margin: 16px 0 20px !important;
+  font-size: 12px;
+}
+.integrated-discovery-projects,
+.integrated-discovery-vacancies { border-top: 1px solid var(--disc-line); }
+.integrated-project-row {
+  display: grid;
+  grid-template-columns: minmax(170px, .9fr) minmax(200px, 1.3fr) minmax(170px, 1fr);
+  gap: 24px 34px;
+  padding: 28px 8px;
+  align-items: center;
+  border-bottom: 1px solid var(--disc-line);
+}
+.integrated-project-row:hover { background: var(--disc-panel); }
+.integrated-project-row h2 { color: var(--disc-text); font-weight: 500; font-size: 25px; line-height: 1.3; letter-spacing: -.9px; }
+.integrated-project-row h2 button,
+.integrated-project-role {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+}
+.integrated-project-row h2 button:hover,
+.integrated-project-role:hover { color: var(--disc-accent); }
+.integrated-project-row p {
+  color: var(--disc-secondary);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.integrated-project-roles { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.integrated-project-roles .integrated-project-role {
+  color: var(--disc-accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  font-size: 13px;
+}
+.integrated-project-roles .integrated-project-closed { color: var(--disc-muted); font-size: 12px; }
+.integrated-discovery-empty {
+  margin: 25px 0;
+  padding: 36px 22px;
+  border: 1px solid var(--disc-line);
+  background: var(--disc-panel);
+  color: var(--disc-secondary);
+}
+.integrated-discovery-empty h2 { font-size: 20px; font-weight: 500; color: var(--disc-text); margin-bottom: 8px; }
+.integrated-discovery-empty button { margin-top: 14px; }
+.integrated-discovery-warning { margin-bottom: 22px; padding: 12px 16px; border: 1px solid #805053; color: #ffcccc; }
+.integrated-discovery-detail {
+  margin: 30px 0;
+  border-top: 1px solid var(--disc-line);
+  padding-top: 20px;
+}
+.integrated-discovery-detail > .integrated-discovery-secondary { margin-bottom: 18px; }
+.integrated-discovery-vacancies > .vacancy-block {
+  background: transparent;
+  color: var(--disc-text);
+  border: 0;
+  border-bottom: 1px solid var(--disc-line);
+  border-radius: 0;
+  padding: 28px 8px;
+  margin: 0;
+  box-shadow: none;
+}
+.integrated-discovery-vacancies .vacancy-block .row {
+  align-items: flex-start;
+  gap: 32px;
+}
+.integrated-discovery-vacancies .vacancy-block h3 {
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -1px;
+  margin: 4px 0 12px;
+}
+.integrated-discovery-vacancies .vacancy-block p { color: var(--disc-secondary); line-height: 1.8; }
+.integrated-discovery-vacancies .vacancy-block .muted { color: var(--disc-muted); }
+.integrated-discovery-vacancies .vacancy-block .status {
+  display: inline-block;
+  background: var(--disc-panel);
+  color: var(--disc-accent);
+  margin-bottom: 9px;
+}
+.integrated-discovery-vacancies .vacancy-block > .primary {
+  background: #3a67c7;
+  color: white;
+  border-radius: 4px;
+}
+.integrated-discovery-vacancies .vacancy-block .outline {
+  background: transparent;
+  color: var(--disc-text);
+  border: 1px solid #3d526d;
+  border-radius: 4px;
+}
+.integrated-discovery-vacancies .vacancy-block .details-body {
+  background: var(--disc-panel);
+  color: var(--disc-text);
+}
+.integrated-discovery-vacancies .vacancy-block .details-body p,
+.integrated-discovery-vacancies .vacancy-block .details-body label {
+  color: var(--disc-secondary);
+}
+.integrated-discovery-vacancy-overline {
+  color: var(--disc-muted) !important;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 11px !important;
+  font-weight: 600;
+}
+.integrated-discovery-more {
+  display: block;
+  margin: 25px auto 0;
+}
+@media(max-width: 850px) {
+  .integrated-project-row { grid-template-columns: 1fr 1fr; }
+  .integrated-project-roles { grid-column: 2; grid-row: 1 / span 2; }
+  .integrated-discovery-head { align-items: flex-start; }
+}
+@media(max-width: 600px) {
+  .integrated-design-page .integrated-content { padding: 22px 18px 56px; }
+  .integrated-project-row { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  .integrated-project-roles { gap: 3px; }
+  .integrated-discovery-actions { width: 100%; }
+  .integrated-discovery-search { flex: 1 1 100%; width: 100%; }
+  .integrated-discovery-vacancies .vacancy-block .row { flex-direction: column; align-items: stretch; }
+}
+
+/* Keep the approved search/filter/create command bar in one line at desktop
+   sizes. Wrapping is reserved for actual narrow screens. */
+@media (min-width: 1100px) {
+  .integrated-discovery-head { flex-wrap: nowrap; }
+  .integrated-discovery-head > div:first-child { flex: 1 1 auto; min-width: 220px; }
+  .integrated-discovery-actions {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    gap: 12px;
+  }
+  .integrated-discovery-search { width: 260px; }
+}

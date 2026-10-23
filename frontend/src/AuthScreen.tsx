@@ -72,6 +72,7 @@ export function AuthScreen({
               <button
                 className="tg-primary"
                 disabled={busy || !config.telegram_enabled}
+                aria-busy={busy}
                 onClick={onTelegram}
               >
                 {busy ? "Проверяем вход…" : "Войти через Telegram"}
@@ -97,7 +98,7 @@ export function AuthScreen({
           {error && (
             <div className="tg-error" role="alert">
               <p>{error}</p>
-              <button type="button" onClick={onRetry} disabled={busy}>
+              <button type="button" onClick={onRetry} disabled={busy} aria-busy={busy}>
                 Повторить проверку
               </button>
             </div>
@@ -132,8 +133,8 @@ export function AuthScreen({
                   onChange={(e) => onPassword(e.target.value)}
                 />
               </label>
-              <button className="tg-secondary" disabled={busy}>
-                Войти в демо
+              <button className="tg-secondary" disabled={busy} aria-busy={busy}>
+                {busy ? "Выполняем вход…" : "Войти в демо"}
               </button>
               <p className="tg-hint">
                 ivan@example.test · demo-ivan-123

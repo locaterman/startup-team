@@ -1,0 +1,191 @@
+/*
+ * New-design header isolated from the existing application's global styles.
+ * Derived from design/prototypes/src/final/style.css and complete/style.css.
+ * Other screens intentionally keep their current styling until migrated.
+ */
+.integrated-skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  transform: translateY(-150%);
+  background: #182942;
+  color: #eef2f8;
+  padding: 12px;
+  z-index: 100;
+}
+.integrated-skip-link:focus-visible {
+  transform: none;
+}
+.integrated-header {
+  color: #eef2f8;
+  background: #0b1322;
+  border-bottom: 1px solid #263b53;
+  font: 13px/1.6 Manrope, "Segoe UI", sans-serif;
+}
+.integrated-header-inner {
+  max-width: 1200px;
+  padding: 0 28px;
+  min-height: 104px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+.integrated-header button {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  cursor: pointer;
+}
+.integrated-header button:focus-visible {
+  outline: 2px solid #b9d2ff;
+  outline-offset: 3px;
+}
+.integrated-brand {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0;
+  text-align: left;
+}
+.integrated-brand img {
+  width: 32px;
+  height: 53px;
+  object-fit: contain;
+  filter: grayscale(1) contrast(8);
+  mix-blend-mode: screen;
+}
+.integrated-brand > span {
+  display: block;
+  font-size: 17px;
+  font-weight: 550;
+  letter-spacing: -0.45px;
+  line-height: 1.2;
+}
+.integrated-brand small {
+  display: block;
+  color: #b1bed0;
+  font-size: 10px;
+  font-weight: 450;
+  letter-spacing: 2px;
+  margin-top: 8px;
+}
+.integrated-nav {
+  display: flex;
+  gap: 25px;
+  align-items: stretch;
+  align-self: stretch;
+  min-width: 0;
+}
+.integrated-nav button {
+  border-bottom: 2px solid transparent;
+  color: #92a4bd;
+  padding: 2px 0 0;
+  min-height: 44px;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.integrated-nav button:hover {
+  color: #aac9ff;
+}
+.integrated-nav button[aria-current="page"] {
+  color: #eef2f8;
+  border-bottom-color: #aac9ff;
+}
+.integrated-account {
+  margin-left: auto;
+  position: relative;
+  min-width: 0;
+}
+.integrated-account-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 8px 0;
+  font-size: 12px;
+}
+.integrated-account-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+.integrated-account-initials {
+  border-left: 1px solid #3b4d64;
+  padding-left: 12px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.integrated-account-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 230px;
+  max-width: calc(100vw - 24px);
+  z-index: 20;
+  background: #101d30;
+  border: 1px solid #263b53;
+  padding: 18px;
+  box-shadow: 0 12px 28px #0004;
+}
+.integrated-account-menu strong {
+  display: block;
+  overflow-wrap: anywhere;
+  margin-bottom: 8px;
+}
+.integrated-account-menu button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 0;
+  text-align: left;
+  color: #b1bed0;
+}
+.integrated-account-menu button:hover {
+  color: #aac9ff;
+}
+@media (max-width: 780px) {
+  .integrated-header-inner {
+    padding: 14px 18px 0;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    min-height: 100px;
+  }
+  .integrated-brand img { width: 24px; height: 40px; }
+  .integrated-brand > span { font-size: 14px; }
+  .integrated-brand small { font-size: 9px; margin-top: 4px; }
+  .integrated-account { order: 2; }
+  .integrated-account-name { max-width: 110px; }
+  .integrated-nav {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    align-self: auto;
+    gap: 24px;
+  }
+}
+
+/* Separate notifications: no legacy dashboard notification card. */
+.integrated-account { display:flex;align-items:center;gap:18px; }
+.integrated-notifications {
+  color:#b1bed0!important;position:relative;display:grid;place-items:center;
+  min-height:44px;min-width:44px;
+}
+.integrated-notifications:hover,
+.integrated-notifications[aria-current="page"] { color:#aac9ff!important; }
+.integrated-notification-dot {
+  width:7px;height:7px;border-radius:50%;background:#aac9ff;
+  position:absolute;top:8px;right:7px;
+}
+@media(max-width:980px) {
+  .integrated-header-inner { gap:20px; }
+  .integrated-nav { gap:14px; }
+  .integrated-nav button { font-size:12px; }
+}
+@media(max-width:580px) {
+  .integrated-account { gap:3px; }
+  .integrated-account-name { max-width:80px; }
+}

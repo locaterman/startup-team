@@ -1,0 +1,142 @@
+name: Isolated browser acceptance
+
+# Browser E2E runs once on the PR (not again for push). Other pushes
+# to superseded commits are cancelled instead of spamming failure emails.
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - 'compose*.yaml'
+      - 'deploy/**'
+      - 'contracts/**'
+      - 'db/**'
+      - 'scripts/**'
+      - 'tools/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+concurrency:
+  group: browser-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare ephemeral local-only test configuration
+        run: |
+          umask 077
+          {
+            echo WEB_PORT=18086
+            echo COOKIE_SECURE=false
+            echo ALLOW_DEMO_LOGIN=true
+            echo SEED_DEMO_ACCOUNTS=true
+            printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)"
+            printf 'CSRF_SECRET=%s\n' "$(openssl rand -hex 32)"
+          } > .env
+      - name: Verify CI change-trigger coverage
+        run: python3 tools/check_ci_coverage.py
+      - name: Check Linux and Windows test runner syntax
+        run: |
+          bash -n tools/test_on_linux.sh
+          pwsh -NoProfile -NonInteractive -Command '
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              "tools/test_on_windows.ps1", [ref]$tokens, [ref]$parseErrors
+            ) | Out-Null
+            if ($parseErrors.Count -gt 0) { $parseErrors | Format-List; exit 1 }
+          '
+      - name: Validate production and Telegram Compose overlays
+        env:
+          APP_DOMAIN: ci.example.invalid
+          TELEGRAM_BOT_TOKEN: ci-configuration-only
+          TELEGRAM_SECRET_PATH: /tmp/ci-unused-telegram-secret
+        run: |
+          docker compose -f compose.yaml -f compose.production.yaml config --quiet
+          docker compose -f compose.yaml -f deploy/compose.telegram-staging.yaml config --quiet
+      - name: Start separate API, web and database
+        run: docker compose -p startup_team_browser_ci up -d --build
+      - name: Check test stack readiness
+        run: |
+          for i in $(seq 1 45); do
+            if curl -fsS --max-time 5 http://127.0.0.1:18086/readyz; then
+              exit 0
+            fi
+            sleep 3
+          done
+          docker compose -p startup_team_browser_ci ps
+          exit 1
+      - name: Verify strict HTTP 204 logout framing
+        run: docker compose -p startup_team_browser_ci exec -T api pytest -q /app/backend/tests/test_http_responses.py
+      - name: Run complete backend regression suite in separate migrated test DB
+        run: |
+          docker compose -p startup_team_browser_ci exec -T db psql -U startup -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE startup_test_ci;"
+          docker compose -p startup_team_browser_ci exec -T api sh -ec '
+            export TEST_DATABASE_URL="${DATABASE_URL%/startup}/startup_test_ci"
+            export DATABASE_URL="$TEST_DATABASE_URL"
+            alembic -c /app/backend/alembic.ini upgrade head
+            pytest -q /app/backend/tests
+          '
+      - name: Verify synthetic PostgreSQL backup and restore
+        run: bash tools/verify_postgres_backup_restore.sh startup_team_browser_ci
+      - name: Smoke-test isolated Linux verifier without touching browser stack
+        run: |
+          bash tools/test_on_linux.sh --skip-integration
+          curl -fsS --max-time 5 http://127.0.0.1:18086/readyz
+      - name: Install browser test dependencies
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+      - name: Install headless Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Run Chromium multi-account workflows
+        working-directory: frontend
+        env:
+          CI: 'true'
+          E2E_BASE_URL: 'http://127.0.0.1:18086'
+        run: npm run test:e2e
+      - name: Seed four preview startups and eight vacancies via genuine API
+        run: |
+          python3 scripts/seed_preview_catalog.py
+          python3 scripts/seed_preview_catalog.py | tee /tmp/preview-seed-rerun.log
+          grep -F "Created on this run: 0 projects, 0 vacancies." /tmp/preview-seed-rerun.log
+      - name: Preserve desktop and mobile visual evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: complete-design-visual-evidence
+          path: frontend/visual-evidence
+          retention-days: 7
+          if-no-files-found: error
+      - name: Verify backend emitted no ASGI protocol errors
+        run: |
+          if docker compose -p startup_team_browser_ci logs --no-color api |
+            grep -E 'Response content longer than Content-Length|Exception in ASGI application'; then
+            echo "ASGI server emitted a protocol error"
+            exit 1
+          fi
+      - name: Upload failure screenshots and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-failures
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: ignore
+      - name: Show application logs if failing
+        if: failure()
+        run: docker compose -p startup_team_browser_ci logs --tail=100 api web
+      - name: Destroy temporary database and containers
+        if: always()
+        run: docker compose -p startup_team_browser_ci down -v

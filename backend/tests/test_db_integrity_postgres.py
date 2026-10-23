@@ -5,6 +5,7 @@ import os
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError, DBAPIError
+from db_safety import require_disposable_test_database
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get('TEST_DATABASE_URL'),
@@ -14,8 +15,10 @@ pytestmark = pytest.mark.skipif(
 @pytest.fixture
 def conn():
     url = os.environ['TEST_DATABASE_URL']
-    if 'startup_test' not in url or not url.startswith('postgresql'):
-        pytest.fail('TEST_DATABASE_URL must reference isolated PostgreSQL startup_test')
+    try:
+        require_disposable_test_database(url)
+    except ValueError as exc:
+        pytest.fail(str(exc), pytrace=False)
     engine = create_engine(url, pool_pre_ping=True)
     with engine.begin() as c:
         c.execute(text('''TRUNCATE idempotency_keys,notifications,events,test_submissions,
