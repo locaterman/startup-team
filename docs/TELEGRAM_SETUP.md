@@ -1,5 +1,7 @@
 # Telegram-вход: реализация и следующий шаг
 
+> **Исторический отчёт от 21 октября 2026 года.** Ниже записано состояние на момент первоначального создания Telegram-авторизации, а не текущая готовность продукта. По состоянию на 23 октября Mini App уже развёрнута по адресу https://startup.locatermanhass.ru/, реальный бот [@test_q_buisness_club_bot](https://t.me/test_q_buisness_club_bot) подключён, уведомление о новом отклике получено пользователем в Telegram. Для актуального описания см. [README](../README.md) и [TELEGRAM_DEBIAN_STAGING](TELEGRAM_DEBIAN_STAGING.md).
+
 21 октября 2026. Код v0.5.0. Пользователь предоставил username бота: [@test_q_buisness_club_bot](https://t.me/test_q_buisness_club_bot). Реальный токен не передавался; подключение backend, адрес HTTPS и настройка Mini App ещё не выполнены.
 
 ## Что реализовано
