@@ -209,9 +209,26 @@ def snapshot(name: str):
                     JOIN pg_class c ON c.oid=t.tgrelid
                     JOIN pg_namespace n ON n.oid=c.relnamespace
                     WHERE n.nspname='public' AND NOT t.tgisinternal ORDER BY 1,2""",
-                "functions": """SELECT p.proname, pg_get_functiondef(p.oid)
-                    FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-                    WHERE n.nspname='public' ORDER BY 1""",
+                # pgcrypto is extension-managed: pg_dump re-creates it from
+                # CREATE EXTENSION, not from standalone function definitions.
+                # Compare its version separately, and compare app-defined
+                # function bodies, signatures and execution attributes.
+                "functions": """SELECT p.proname,
+                    pg_get_function_identity_arguments(p.oid),
+                    pg_get_function_result(p.oid), l.lanname, p.prosrc,
+                    p.provolatile, p.proisstrict, p.prosecdef, p.proparallel
+                    FROM pg_proc p
+                    JOIN pg_namespace n ON n.oid=p.pronamespace
+                    JOIN pg_language l ON l.oid=p.prolang
+                    WHERE n.nspname='public'
+                      AND NOT EXISTS (
+                        SELECT 1 FROM pg_depend dep
+                        WHERE dep.classid='pg_proc'::regclass
+                          AND dep.objid=p.oid AND dep.deptype='e'
+                      )
+                    ORDER BY 1,2""",
+                "extensions": """SELECT extname,extversion
+                    FROM pg_extension WHERE extname='pgcrypto' ORDER BY 1""",
             }
             schema = {}
             for category, sql in queries.items():
