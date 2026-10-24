@@ -2,7 +2,7 @@ name: Approved complete design reference
 
 on:
   push:
-    branches: [chatgpt/complete-api-integration]
+    branches: [feature/startup-team-mvp]
     paths:
       - 'design/prototypes/**'
       - 'frontend/reference/**'
